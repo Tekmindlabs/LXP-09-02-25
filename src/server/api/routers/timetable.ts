@@ -168,17 +168,12 @@ export const timetableRouter = createTRPCRouter({
 				// Check if timetable already exists for the class/classGroup in this term
 				const existingTimetable = await ctx.prisma.timetable.findFirst({
 					where: {
-						AND: [
-							{
-								OR: [
-									{ classId: input.classId },
-									{ classGroupId: input.classGroupId }
-								]
-							},
-							{ termId: input.termId }
-						]
-					}
-				});
+						AND: [			  
+						  { classId: input.classId }, // Only check classId			  
+						  { termId: input.termId }			  
+						]			  
+					  }			  
+					});
 
 				if (existingTimetable) {
 					throw new TRPCError({
