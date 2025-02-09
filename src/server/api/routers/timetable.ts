@@ -90,8 +90,8 @@ export const timetableRouter = createTRPCRouter({
 						dayOfWeek: dayOfWeek,
 						OR: [
 							{
-								startTime: { lte: new Date(`1970-01-01T${input.period.endTime}`) },
-								endTime: { gte: new Date(`1970-01-01T${input.period.startTime}`) }
+								startTime: { lte: new Date(`1970-01-01T${endTimeStr}:00`) },
+								endTime: { gte: new Date(`1970-01-01T${startTimeStr}:00`) }
 							}
 						]
 					},
@@ -124,8 +124,8 @@ export const timetableRouter = createTRPCRouter({
 						dayOfWeek: dayOfWeek,
 						OR: [
 							{
-								startTime: { lte: new Date(`1970-01-01T${input.period.endTime}`) },
-								endTime: { gte: new Date(`1970-01-01T${input.period.startTime}`) }
+								startTime: { lte: new Date(`1970-01-01T${endTimeStr}:00`) },
+								endTime: { gte: new Date(`1970-01-01T${startTimeStr}:00`) }
 							}
 						]
 					},
