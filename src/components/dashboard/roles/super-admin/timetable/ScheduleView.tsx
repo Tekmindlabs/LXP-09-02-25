@@ -6,6 +6,7 @@ import { api } from "@/utils/api";
 import { TeacherProfile, Period as PrismaPeriod, Classroom } from "@prisma/client";
 import { BreakTime, normalizeBreakTime, formatTimeString } from "@/types/timetable";
 import { WeeklyScheduleView, PeriodWithRelations } from "./WeeklyScheduleView";
+import { formatDisplayTime } from "@/utils/time";
 
 
 
@@ -95,7 +96,7 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 					</div>
 				</div>
 				<div className="text-xs text-muted-foreground">
-					{formatTimeString(period.startTime)} - {formatTimeString(period.endTime)}
+					{formatDisplayTime(period.startTime)} - {formatDisplayTime(period.endTime)}
 				</div>
 			</div>
 		</Card>
@@ -114,7 +115,7 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 					</div>
 				</div>
 				<div className="text-xs bg-secondary/20 px-2 py-1 rounded-full">
-					{breakTime.startTime} - {breakTime.endTime}
+					{formatDisplayTime(breakTime.startTime)} - {formatDisplayTime(breakTime.endTime)}
 				</div>
 			</div>
 		</Card>

@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { convert24To12Hour, convert12To24Hour, formatDisplayTime } from "@/utils/time";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Button } from "@/components/ui/button";
@@ -57,8 +58,8 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 				return;
 			}
 
-			const startTime = new Date(`1970-01-01T${data.startTime}`);
-			const endTime = new Date(`1970-01-01T${data.endTime}`);
+			const startTime = data.startTime;
+			const endTime = data.endTime;
 
 			if (startTime >= endTime) {
 				toast({
@@ -210,13 +211,16 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 												name={field.name}
 												ref={field.ref}
 												onBlur={field.onBlur}
-												value={field.value instanceof Date ? field.value.toISOString().slice(11, 16) : ''}
-												onChange={(e) => field.onChange(new Date(`1970-01-01T${e.target.value}`))}
+												value={field.value instanceof Date ? field.value.toTimeString().slice(0, 5) : ''}
+												onChange={(e) => {
+													const time12 = convert24To12Hour(e.target.value);
+													field.onChange(new Date(`1970-01-01T${e.target.value}`));
+												}}
 												className={form.formState.errors.startTime ? "border-red-500" : ""}
 											/>
 										</FormControl>
 										<FormMessage className="text-red-500" />
-										<p className="text-xs text-muted-foreground">Enter time in 24-hour format (HH:mm)</p>
+										<p className="text-xs text-muted-foreground">Time will be displayed in AM/PM format</p>
 									</FormItem>
 								)}
 							/>
@@ -234,13 +238,16 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 												name={field.name}
 												ref={field.ref}
 												onBlur={field.onBlur}
-												value={field.value instanceof Date ? field.value.toISOString().slice(11, 16) : ''}
-												onChange={(e) => field.onChange(new Date(`1970-01-01T${e.target.value}`))}
+												value={field.value instanceof Date ? field.value.toTimeString().slice(0, 5) : ''}
+												onChange={(e) => {
+													const time12 = convert24To12Hour(e.target.value);
+													field.onChange(new Date(`1970-01-01T${e.target.value}`));
+												}}
 												className={form.formState.errors.endTime ? "border-red-500" : ""}
 											/>
 										</FormControl>
 										<FormMessage className="text-red-500" />
-										<p className="text-xs text-muted-foreground">Enter time in 24-hour format (HH:mm)</p>
+										<p className="text-xs text-muted-foreground">Time will be displayed in AM/PM format</p>
 									</FormItem>
 								)}
 							/>
