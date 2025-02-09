@@ -203,19 +203,31 @@ export const timetableRouter = createTRPCRouter({
 		}))
 		.query(async ({ ctx, input }): Promise<ScheduleResponse> => {
 			try {
+				// First get the teacher profile
+				const teacherProfile = await ctx.prisma.teacherProfile.findFirst({
+					where: { userId: input.teacherId },
+				});
+
+				if (!teacherProfile) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Teacher profile not found",
+					});
+				}
+
 				const breakTimes = await ctx.prisma.$queryRaw<ServerBreakTime[]>`
 					SELECT DISTINCT bt.*
 					FROM "break_times" bt
 					JOIN "timetables" t ON t."id" = bt."timetableId"
 					JOIN "periods" p ON p."timetableId" = t."id"
 					WHERE t."termId" = ${input.termId}
-					AND p."teacherId" = ${input.teacherId}
+					AND p."teacherId" = ${teacherProfile.id}
 					GROUP BY bt.id, bt."startTime", bt."endTime", bt."type", bt."dayOfWeek", bt."timetableId", bt."createdAt", bt."updatedAt"
 				`;
 
 				const periods = await ctx.prisma.period.findMany({
 					where: {
-						teacherId: input.teacherId,
+						teacherId: teacherProfile.id,
 						timetable: {
 							termId: input.termId
 						}

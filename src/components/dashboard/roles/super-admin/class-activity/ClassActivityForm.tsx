@@ -12,6 +12,7 @@ import { FileUpload } from "@/components/ui/file-upload";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -124,12 +125,7 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 
 	const createMutation = api.classActivity.create.useMutation({
 		onSuccess: () => {
-			toast({
-				title: "Success",
-				description: "Activity created successfully",
-			});
 			utils.classActivity.getAll.invalidate();
-			onClose();
 		},
 		onError: (error) => {
 			toast({
@@ -143,7 +139,13 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 	const updateMutation = api.classActivity.update.useMutation({
 		onSuccess: () => {
 			utils.classActivity.getAll.invalidate();
-			onClose();
+		},
+		onError: (error) => {
+			toast({
+				title: "Error",
+				description: error.message,
+				variant: "destructive",
+			});
 		},
 	});
 
@@ -222,8 +224,12 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 	};
 
 	return (
-		<Form {...form}>
-			<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+		<DialogContent className="max-w-3xl">
+			<DialogHeader>
+				<DialogTitle>{activityId ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
+			</DialogHeader>
+			<Form {...form}>
+				<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 				<FormField
 					control={form.control}
 					name="title"
@@ -593,5 +599,6 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 				</div>
 			</form>
 		</Form>
-	);
+	</DialogContent>
+);
 }

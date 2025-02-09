@@ -431,65 +431,90 @@ model Attendance {
 
 // Activity & Assessment Models
 model ClassActivity {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   title           String
   description     String?
   type            ActivityType
-  status          String    // 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
-  deadline        DateTime?
+  status          ActivityStatus
   classId         String?
-  classGroupId    String?
-  subject         Subject   @relation(fields: [subjectId], references: [id])
   subjectId       String
-  gradingCriteria String?
-  configuration   Json      // Stores totalMarks, passingMarks, activityMode, gradingType, etc.
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  classGroupId    String?
+  deadline        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
+  // Configuration
+  configuration   ActivityConfiguration?
+  resources       ActivityResource[]
   submissions     ActivitySubmission[]
-  resources       Resource[]
-  class          Class?     @relation(fields: [classId], references: [id])
-  classGroup     ClassGroup? @relation(fields: [classGroupId], references: [id])
 
-  @@unique([title, classId])
+  // Relations
+  class           Class?      @relation(fields: [classId], references: [id])
+  subject         Subject     @relation(fields: [subjectId], references: [id])
+  classGroup      ClassGroup? @relation(fields: [classGroupId], references: [id])
+
   @@index([classId])
+  @@index([subjectId])
   @@index([classGroupId])
 }
 
+model ActivityConfiguration {
+  id               String             @id @default(cuid())
+  activityId       String             @unique
+  activityMode     ActivityMode
+  isGraded         Boolean            @default(true)
+  totalMarks       Int
+  passingMarks     Int
+  gradingType      ActivityGradingType
+  availabilityDate DateTime
+  deadline         DateTime
+  instructions     String?
+  timeLimit        Int?               // in minutes
+  attempts         Int?               // number of allowed attempts
+  viewType         ActivityViewType
+  autoGradingConfig Json?             // For online activities
+
+  // Relations
+  activity         ClassActivity      @relation(fields: [activityId], references: [id], onDelete: Cascade)
+}
+
+model ActivityResource {
+  id          String              @id @default(cuid())
+  title       String
+  type        ActivityResourceType
+  url         String
+  activityId  String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // Relations
+  activity    ClassActivity       @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+}
+
 model ActivitySubmission {
-  id             String    @id @default(cuid())
-  activityId     String
-  studentId      String
-  content        Json
-  totalMarks     Int
-  obtainedMarks  Int
-  isPassing      Boolean
-  feedback       String?
-  status         String    @default("SUBMITTED") // SUBMITTED, GRADED, PENDING
-  submittedAt    DateTime  @default(now())
-  gradedAt       DateTime?
-  gradedBy       String?
-  gradingType    String    // AUTOMATIC or MANUAL
-  
-  activity       ClassActivity @relation(fields: [activityId], references: [id])
-  student        User         @relation("StudentSubmissions", fields: [studentId], references: [id])
+  id            String                  @id @default(cuid())
+  activityId    String
+  studentId     String
+  status        ActivitySubmissionStatus
+  submittedAt   DateTime               @default(now())
+  content       Json?                  // Submission content
+  obtainedMarks Float?
+  totalMarks    Float?
+  feedback      String?
+  isPassing     Boolean                @default(false)
+  gradingType   ActivityGradingType
+  gradedBy      String?
+  gradedAt      DateTime?
+
+  // Relations
+  activity      ClassActivity          @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student       User                   @relation("StudentSubmissions", fields: [studentId], references: [id])
 
   @@unique([activityId, studentId])
   @@index([activityId])
   @@index([studentId])
-}
-
-model Resource {
-  id         String        @id @default(cuid())
-  title      String
-  type       ResourceType
-  url        String
-  activity   ClassActivity @relation(fields: [activityId], references: [id])
-  activityId String
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-
-  @@unique([title, activityId])
 }
 
 // Timetable & Classroom Models
@@ -756,7 +781,7 @@ enum EventType {
 }
 
 enum ActivityType {
-  // Online Activities (Auto-graded)
+  // Online Activities
   QUIZ_MULTIPLE_CHOICE
   QUIZ_DRAG_DROP
   QUIZ_FILL_BLANKS
@@ -767,7 +792,7 @@ enum ActivityType {
   GAME_FLASHCARDS
   VIDEO_YOUTUBE
   READING
-  // In-Class Activities (Manually graded)
+  // In-Class Activities
   CLASS_ASSIGNMENT
   CLASS_PROJECT
   CLASS_PRESENTATION
@@ -775,7 +800,37 @@ enum ActivityType {
   CLASS_EXAM
 }
 
+enum ActivityMode {
+  ONLINE
+  IN_CLASS
+}
+
 enum ActivityStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ActivityGradingType {
+  AUTOMATIC
+  MANUAL
+}
+
+enum ActivityViewType {
+  PREVIEW
+  STUDENT
+  CONFIGURATION
+}
+
+enum ActivityResourceType {
+  DOCUMENT
+  VIDEO
+  AUDIO
+  LINK
+  IMAGE
+}
+
+enum ActivitySubmissionStatus {
   PENDING
   SUBMITTED
   GRADED

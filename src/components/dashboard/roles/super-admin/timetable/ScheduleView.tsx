@@ -4,8 +4,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/utils/api";
 import { TeacherProfile, Period as PrismaPeriod, Classroom } from "@prisma/client";
-import { BreakTime, normalizeBreakTime, formatTimeString } from "@/types/timetable";
-import { WeeklyScheduleView, PeriodWithRelations } from "./WeeklyScheduleView";
+import { BreakTime, normalizeBreakTime } from "@/types/timetable";
+import { WeeklyScheduleView } from "./WeeklyScheduleView";
+import type { PeriodWithRelations } from "./WeeklyScheduleView";
 import { formatDisplayTime } from "@/utils/time";
 
 
@@ -27,7 +28,7 @@ const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
 	return `${hour.toString().padStart(2, "0")}:${minute}`;
 });
 
-export function ScheduleView({ type, entityId, termId, breakTimes = [] }: ScheduleViewProps) {
+export const ScheduleView = ({ type, entityId, termId, breakTimes = [] }: ScheduleViewProps) => {
 	const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
 	const [selectedDay, setSelectedDay] = useState(1);
 

@@ -8,6 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { PeriodDialog } from "../timetable/PeriodDialog";
+import { ScheduleView } from "../timetable/ScheduleView";
 import { TeacherAnalyticsSection } from "./analytics/TeacherAnalyticsSection";
 import type { Period, ClassActivity } from "@prisma/client";
 import type { RouterOutputs } from "@/utils/api";
@@ -40,7 +41,21 @@ export default function TeacherProfileView({ teacherId }: TeacherProfileViewProp
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
 	const [selectedPeriod, setSelectedPeriod] = useState<ExtendedPeriod | null>(null);
 
-	const { data: teacher, isLoading } = api.teacher.getById.useQuery(teacherId);
+	const { data: teacher, isLoading } = api.teacher.getById.useQuery(teacherId, {
+		select: (data) => ({
+			...data,
+			teacherProfile: {
+				...data.teacherProfile,
+				classes: data.teacherProfile?.classes.map(c => ({
+					...c,
+					class: {
+						...c.class,
+						term: c.class.term
+					}
+				})) ?? []
+			}
+		})
+	});
 	const utils = api.useContext();
 
 	if (isLoading) return <div>Loading...</div>;
@@ -75,79 +90,8 @@ export default function TeacherProfileView({ teacherId }: TeacherProfileViewProp
 		utils.teacher.getById.invalidate(teacherId);
 	};
 
-	const getScheduleByDay = (date: Date) => {
-		if (!teacher?.teacherProfile) return [];
-		
-		const periods = teacher.teacherProfile.classes.flatMap(teacherClass => 
-			teacherClass.class.timetable?.periods.filter(period => 
-				new Date(period.startTime).getDay() === date.getDay()
-			) ?? []
-		).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
-		return periods.map(period => ({
-			...period,
-			subject: { name: period.subject.name },
-			classroom: { name: period.classroom.name },
-			timetable: { id: period.timetableId }
-		}));
-	};
 
-	const renderScheduleView = () => {
-		const periodsForSelectedDate = getScheduleByDay(selectedDate);
-		
-		return (
-			<div className="space-y-4">
-				<div className="flex justify-between items-center">
-					<h3 className="text-lg font-semibold">
-						{format(selectedDate, 'EEEE, MMMM d, yyyy')} Schedule
-					</h3>
-					<div className="space-x-2">
-						{(['daily', 'weekly', 'monthly'] as ViewMode[]).map(mode => (
-							<Button 
-								key={mode} 
-								variant={calendarView === mode ? 'default' : 'outline'}
-								onClick={() => setCalendarView(mode)}
-							>
-								{mode.charAt(0).toUpperCase() + mode.slice(1)}
-							</Button>
-						))}
-					</div>
-				</div>
-				
-				<div className="space-y-4">
-					{periodsForSelectedDate.map(period => (
-						<Card 
-							key={period.id} 
-							className="cursor-pointer hover:bg-accent"
-							onClick={() => handlePeriodClick(period)}
-						>
-							<CardContent className="p-4">
-								<div className="grid gap-2">
-									<div className="flex justify-between">
-										<span className="font-semibold">
-											{format(new Date(period.startTime), "HH:mm")} - {format(new Date(period.endTime), "HH:mm")}
-										</span>
-										<span>{Math.round((new Date(period.endTime).getTime() - new Date(period.startTime).getTime()) / 60000)} mins</span>
-									</div>
-									<div>
-										<span className="font-medium">{period.subject.name}</span>
-										<span className="text-muted-foreground"> • {period.classroom.name}</span>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-					))}
-					<Button 
-						className="w-full" 
-						variant="outline"
-						onClick={handleAddPeriod}
-					>
-						Add Period
-					</Button>
-				</div>
-			</div>
-		);
-	};
 
 	return (
 		<div className="space-y-6">
@@ -200,7 +144,13 @@ export default function TeacherProfileView({ teacherId }: TeacherProfileViewProp
 					<div className="grid md:grid-cols-[1fr_300px] gap-6">
 						<Card>
 							<CardContent className="p-6">
-								{renderScheduleView()}
+								{teacher.teacherProfile.classes[0]?.class.term && (
+									<ScheduleView 
+										type="teacher"
+										entityId={teacherId}
+										termId={teacher.teacherProfile.classes[0].class.term.id}
+									/>
+								)}
 							</CardContent>
 						</Card>
 						<Card>

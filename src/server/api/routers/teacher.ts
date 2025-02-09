@@ -228,6 +228,22 @@ export const teacherRouter = createTRPCRouter({
 									class: {
 										include: {
 											classGroup: true,
+											term: true,
+											timetable: {
+												include: {
+													periods: {
+														include: {
+															subject: true,
+															classroom: true,
+															teacher: {
+																include: {
+																	user: true
+																}
+															}
+														}
+													}
+												}
+											}
 										},
 									},
 								},

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { Permissions } from "@/utils/permissions";
 import type { Session } from "next-auth";
+import { ActivitySubmissionStatus } from "../../types/class-activity";
 
 interface GradeData {
 	obtainedMarks: number;
@@ -11,7 +12,7 @@ interface GradeData {
 	feedback?: string | null;
 	gradedBy: string;
 	gradedAt: Date;
-	status: string;
+	status: ActivitySubmissionStatus;
 	content: Prisma.InputJsonValue;
 	isPassing: boolean;
 	gradingType: 'MANUAL' | 'AUTOMATIC';
@@ -171,28 +172,38 @@ export const gradebookRouter = createTRPCRouter({
 					});
 				}
 
-				// Verify activity exists
+				// Validate obtained marks against total marks
 				const activity = await ctx.prisma.classActivity.findUnique({
-					where: { id: input.activityId }
+					where: { id: input.activityId },
+					include: { configuration: true }
 				});
 
-				if (!activity) {
+				if (!activity?.configuration) {
 					throw new TRPCError({
 						code: 'NOT_FOUND',
-						message: 'Activity not found',
+						message: 'Activity or configuration not found',
 					});
 				}
 
+				if (input.obtainedMarks > activity.configuration.totalMarks) {
+					throw new TRPCError({
+						code: 'BAD_REQUEST',
+						message: 'Obtained marks cannot exceed total marks',
+					});
+				}
+
+				const isPassing = input.obtainedMarks >= activity.configuration.passingMarks;
+
 				const submissionData: GradeData = {
 					obtainedMarks: input.obtainedMarks,
-					totalMarks: input.totalMarks,
+					totalMarks: activity.configuration.totalMarks,
 					feedback: input.feedback,
 					gradedBy: session.user.id,
 					gradedAt: new Date(),
-					status: "GRADED",
+					status: ActivitySubmissionStatus.GRADED,
 					content: {} as Prisma.InputJsonValue,
-					isPassing: input.obtainedMarks >= input.totalMarks * 0.6,
-					gradingType: 'MANUAL'
+					isPassing,
+					gradingType: activity.configuration.gradingType
 				};
 
 				return ctx.prisma.activitySubmission.upsert({

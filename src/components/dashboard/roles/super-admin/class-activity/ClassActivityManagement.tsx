@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PlusCircle } from "lucide-react";
 import ClassActivityList from "./ClassActivityList";
 import ClassActivityForm from "./ClassActivityForm";
@@ -44,6 +44,7 @@ export default function ClassActivityManagement() {
 					onClose={handleClose}
 				/>
 			</Dialog>
+
 		</div>
 	);
 }

@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Period as PrismaPeriod, TeacherProfile, Classroom } from '@prisma/client';
 import { BreakTime } from '@/types/timetable';
-import { formatDisplayTime } from '@/utils/time';
+
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
@@ -10,7 +10,7 @@ const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
 	return `${hour.toString().padStart(2, "0")}:${minute}`;
 });
 
-export type PeriodWithRelations = Omit<PrismaPeriod, 'startTime' | 'endTime'> & {
+type PeriodWithRelations = Omit<PrismaPeriod, 'startTime' | 'endTime'> & {
 	startTime: Date;
 	endTime: Date;
 	subject: { name: string };
@@ -32,12 +32,14 @@ interface WeeklyScheduleViewProps {
 	renderBreak: (breakTime: BreakTime) => ReactNode;
 }
 
-export function WeeklyScheduleView({ 
+export type { PeriodWithRelations };
+
+export const WeeklyScheduleView = ({ 
 	periods, 
 	breakTimes, 
 	renderPeriod, 
 	renderBreak 
-}: WeeklyScheduleViewProps) {
+}: WeeklyScheduleViewProps) => {
 	const getPeriodsForTimeSlot = (day: number, timeSlot: string): PeriodWithRelations[] => {
 		return periods.filter(period => {
 			if (period.dayOfWeek !== day) return false;
