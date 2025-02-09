@@ -36,7 +36,12 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 		: api.timetable.getClassroomSchedule.useQuery({ classroomId: entityId, termId });
 
 	const schedule = scheduleData?.periods;
-	const serverBreakTimes = scheduleData?.breakTimes ?? [];
+	const serverBreakTimes = (scheduleData?.breakTimes ?? []).map(breakTime => ({
+		startTime: breakTime.startTime,
+		endTime: breakTime.endTime,
+		type: breakTime.type as "SHORT_BREAK" | "LUNCH_BREAK",
+		dayOfWeek: breakTime.dayOfWeek
+	}));
 
 	// Merge server and local break times, with local taking precedence
 	const allBreakTimes = [...serverBreakTimes, ...breakTimes].reduce<BreakTime[]>((acc, breakTime) => {

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { TimetableService } from "@/server/services/TimetableService";
-import { periodInputSchema, timetableInputSchema, isTimeOverlapping, ScheduleConflict } from "@/types/timetable";
+import { periodInputSchema, timetableInputSchema, isTimeOverlapping, ScheduleConflict, BreakTime, ServerBreakTime } from "@/types/timetable";
 import { Prisma } from "@prisma/client";
 
 // Define the period include type
@@ -203,13 +203,14 @@ export const timetableRouter = createTRPCRouter({
 		}))
 		.query(async ({ ctx, input }): Promise<ScheduleResponse> => {
 			try {
-				const timetables = await ctx.prisma.$queryRaw<Array<{ breakTimes: ScheduleResponse['breakTimes'] }>>`
-					SELECT bt.*
+				const breakTimes = await ctx.prisma.$queryRaw<ServerBreakTime[]>`
+					SELECT DISTINCT bt.*
 					FROM "break_times" bt
 					JOIN "timetables" t ON t."id" = bt."timetableId"
 					JOIN "periods" p ON p."timetableId" = t."id"
 					WHERE t."termId" = ${input.termId}
 					AND p."teacherId" = ${input.teacherId}
+					GROUP BY bt.id, bt."startTime", bt."endTime", bt."type", bt."dayOfWeek", bt."timetableId", bt."createdAt", bt."updatedAt"
 				`;
 
 				const periods = await ctx.prisma.period.findMany({
@@ -228,7 +229,7 @@ export const timetableRouter = createTRPCRouter({
 
 				return {
 					periods,
-					breakTimes: timetables[0]?.breakTimes ?? []
+					breakTimes
 				};
 			} catch (error) {
 				throw new TRPCError({
@@ -247,13 +248,14 @@ export const timetableRouter = createTRPCRouter({
 		}))
 		.query(async ({ ctx, input }): Promise<ScheduleResponse> => {
 			try {
-				const timetables = await ctx.prisma.$queryRaw<Array<{ breakTimes: ScheduleResponse['breakTimes'] }>>`
-					SELECT bt.*
+				const breakTimes = await ctx.prisma.$queryRaw<ServerBreakTime[]>`
+					SELECT DISTINCT bt.*
 					FROM "break_times" bt
 					JOIN "timetables" t ON t."id" = bt."timetableId"
 					JOIN "periods" p ON p."timetableId" = t."id"
 					WHERE t."termId" = ${input.termId}
 					AND p."classroomId" = ${input.classroomId}
+					GROUP BY bt.id, bt."startTime", bt."endTime", bt."type", bt."dayOfWeek", bt."timetableId", bt."createdAt", bt."updatedAt"
 				`;
 
 				const periods = await ctx.prisma.period.findMany({
@@ -272,7 +274,7 @@ export const timetableRouter = createTRPCRouter({
 
 				return {
 					periods,
-					breakTimes: timetables[0]?.breakTimes ?? []
+					breakTimes
 				};
 			} catch (error) {
 				throw new TRPCError({
