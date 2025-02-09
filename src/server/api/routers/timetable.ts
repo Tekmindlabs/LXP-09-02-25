@@ -289,6 +289,7 @@ export const timetableRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(({ ctx }) => {
 		return ctx.prisma.timetable.findMany({
 			include: {
+				class: true,
 				periods: {
 					include: {
 						subject: true,
@@ -300,12 +301,11 @@ export const timetableRouter = createTRPCRouter({
 						}
 					},
 				},
-				classGroup: true,
-				class: true,
 				breakTimes: true
 			},
 		});
 	}),
+
 
 	getById: protectedProcedure
 		.input(z.string())
