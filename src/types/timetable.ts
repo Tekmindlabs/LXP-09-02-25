@@ -8,6 +8,7 @@ export const breakTimeSchema = z.object({
 });
 
 export const periodInputSchema = z.object({
+	id: z.string().optional(),
 	startTime: z.union([z.string(), z.date()]),
 	endTime: z.union([z.string(), z.date()]),
 	daysOfWeek: z.array(z.number().min(1).max(7)).min(1, "Select at least one day"),

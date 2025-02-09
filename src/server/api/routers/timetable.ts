@@ -47,7 +47,8 @@ export const timetableRouter = createTRPCRouter({
 				startTime: z.string(),
 				endTime: z.string(),
 				dayOfWeek: z.number()
-			}))
+			})),
+			excludePeriodId: z.string().optional()
 		}))
 		.mutation(async ({ ctx, input }) => {
 			const conflicts: ScheduleConflict[] = [];
@@ -88,6 +89,7 @@ export const timetableRouter = createTRPCRouter({
 					where: {
 						teacherId: input.period.teacherId,
 						dayOfWeek: dayOfWeek,
+						NOT: input.excludePeriodId ? { id: input.excludePeriodId } : undefined,
 						OR: [
 							{
 								startTime: { lte: new Date(`1970-01-01T${endTimeStr}:00`) },
@@ -122,6 +124,7 @@ export const timetableRouter = createTRPCRouter({
 					where: {
 						classroomId: input.period.classroomId,
 						dayOfWeek: dayOfWeek,
+						NOT: input.excludePeriodId ? { id: input.excludePeriodId } : undefined,
 						OR: [
 							{
 								startTime: { lte: new Date(`1970-01-01T${endTimeStr}:00`) },
@@ -435,6 +438,99 @@ export const timetableRouter = createTRPCRouter({
 					code: "NOT_FOUND",
 					message: "Teacher profile not found",
 				});
+			}
+
+			// Get break times for the timetable
+			const breakTimes = await ctx.prisma.breakTime.findMany({
+				where: { timetableId: input.timetableId }
+			});
+
+			// Check availability for each day
+			for (const dayOfWeek of input.daysOfWeek) {
+				const startTimeStr = input.startTime.toTimeString().slice(0, 5);
+				const endTimeStr = input.endTime.toTimeString().slice(0, 5);
+				
+				// Check for existing periods in the same time slot
+				const existingPeriod = await ctx.prisma.period.findFirst({
+					where: {
+						timetableId: input.timetableId,
+						dayOfWeek: dayOfWeek,
+						OR: [
+							{
+								startTime: { lte: input.endTime },
+								endTime: { gte: input.startTime }
+							}
+						]
+					}
+				});
+
+				if (existingPeriod) {
+					throw new TRPCError({
+						code: "CONFLICT",
+						message: `Time slot conflict on ${dayOfWeek === 1 ? 'Monday' : dayOfWeek === 2 ? 'Tuesday' : dayOfWeek === 3 ? 'Wednesday' : dayOfWeek === 4 ? 'Thursday' : 'Friday'} at ${startTimeStr}`
+					});
+				}
+
+				// Check for break time conflicts
+				const breakTimeConflict = breakTimes.find(
+					breakTime =>
+						breakTime.dayOfWeek === dayOfWeek &&
+						isTimeOverlapping(
+							startTimeStr,
+							endTimeStr,
+							breakTime.startTime,
+							breakTime.endTime
+						)
+				);
+
+				if (breakTimeConflict) {
+					throw new TRPCError({
+						code: "CONFLICT",
+						message: `Break time conflict on ${dayOfWeek === 1 ? 'Monday' : dayOfWeek === 2 ? 'Tuesday' : dayOfWeek === 3 ? 'Wednesday' : dayOfWeek === 4 ? 'Thursday' : 'Friday'} at ${startTimeStr}`
+					});
+				}
+
+				// Check teacher availability
+				const teacherConflict = await ctx.prisma.period.findFirst({
+					where: {
+						teacherId: teacherProfile.id,
+						dayOfWeek: dayOfWeek,
+						OR: [
+							{
+								startTime: { lte: input.endTime },
+								endTime: { gte: input.startTime }
+							}
+						]
+					}
+				});
+
+				if (teacherConflict) {
+					throw new TRPCError({
+						code: "CONFLICT",
+						message: `Teacher already has a class scheduled on ${dayOfWeek === 1 ? 'Monday' : dayOfWeek === 2 ? 'Tuesday' : dayOfWeek === 3 ? 'Wednesday' : dayOfWeek === 4 ? 'Thursday' : 'Friday'} at ${startTimeStr}`
+					});
+				}
+
+				// Check classroom availability
+				const classroomConflict = await ctx.prisma.period.findFirst({
+					where: {
+						classroomId: input.classroomId,
+						dayOfWeek: dayOfWeek,
+						OR: [
+							{
+								startTime: { lte: input.endTime },
+								endTime: { gte: input.startTime }
+							}
+						]
+					}
+				});
+
+				if (classroomConflict) {
+					throw new TRPCError({
+						code: "CONFLICT",
+						message: `Classroom is already booked on ${dayOfWeek === 1 ? 'Monday' : dayOfWeek === 2 ? 'Tuesday' : dayOfWeek === 3 ? 'Wednesday' : dayOfWeek === 4 ? 'Thursday' : 'Friday'} at ${startTimeStr}`
+					});
+				}
 			}
 
 			// Create periods for each selected day
