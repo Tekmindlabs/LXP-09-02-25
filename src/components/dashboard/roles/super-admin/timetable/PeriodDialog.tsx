@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,7 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 		defaultValues: {
 			startTime: period?.startTime ?? "",
 			endTime: period?.endTime ?? "",
-			dayOfWeek: period?.dayOfWeek ?? 1,
+			daysOfWeek: period?.daysOfWeek ?? [1],
 			durationInMinutes: period?.durationInMinutes ?? 45,
 			teacherId: period?.teacherId ?? "",
 			classroomId: period?.classroomId ?? "",
@@ -137,29 +138,26 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 
 						<FormField
 							control={form.control}
-							name="dayOfWeek"
+							name="daysOfWeek"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Day of Week</FormLabel>
-									<Select
-										value={field.value.toString()}
-										onValueChange={(value) => field.onChange(parseInt(value))}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Select a day" />
-										</SelectTrigger>
-										<SelectContent>
-											{DAYS.map((day, index) => (
-												<SelectItem key={index + 1} value={(index + 1).toString()}>
-													{day}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+									<FormLabel>Days of Week</FormLabel>
+									<FormControl>
+										<MultiSelect
+											options={DAYS.map((day, index) => ({
+												label: day,
+												value: index + 1
+											}))}
+											value={field.value}
+											onChange={field.onChange}
+											placeholder="Select days"
+										/>
+									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
+
 
 						<FormField
 							control={form.control}

@@ -52,95 +52,98 @@ export const timetableRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			const conflicts: ScheduleConflict[] = [];
 
-			// Check break time conflicts
-			const breakTimeConflict = input.breakTimes.find(breakTime =>
-				breakTime.dayOfWeek === input.period.dayOfWeek &&
-				isTimeOverlapping(
-					input.period.startTime,
-					input.period.endTime,
-					breakTime.startTime,
-					breakTime.endTime
-				)
-			);
+			// Check conflicts for each selected day
+			for (const dayOfWeek of input.period.daysOfWeek) {
+				// Check break time conflicts
+				const breakTimeConflict = input.breakTimes.find(breakTime =>
+					breakTime.dayOfWeek === dayOfWeek &&
+					isTimeOverlapping(
+						input.period.startTime,
+						input.period.endTime,
+						breakTime.startTime,
+						breakTime.endTime
+					)
+				);
 
-			if (breakTimeConflict) {
-				conflicts.push({
-					type: 'BREAK_TIME',
-					details: {
-						startTime: breakTimeConflict.startTime,
-						endTime: breakTimeConflict.endTime,
-						dayOfWeek: breakTimeConflict.dayOfWeek,
-						entityId: 'break'
-					}
-				});
-			}
-
-			// Check teacher availability
-			const teacherConflict = await ctx.prisma.period.findFirst({
-				where: {
-					teacherId: input.period.teacherId,
-					dayOfWeek: input.period.dayOfWeek,
-					OR: [
-						{
-							startTime: { lte: new Date(`1970-01-01T${input.period.endTime}`) },
-							endTime: { gte: new Date(`1970-01-01T${input.period.startTime}`) }
+				if (breakTimeConflict) {
+					conflicts.push({
+						type: 'BREAK_TIME',
+						details: {
+							startTime: breakTimeConflict.startTime,
+							endTime: breakTimeConflict.endTime,
+							dayOfWeek: breakTimeConflict.dayOfWeek,
+							entityId: 'break'
 						}
-					]
-				},
-				include: {
-					timetable: {
-						include: {
-							class: true
-						}
-					}
+					});
 				}
-			});
 
-			if (teacherConflict) {
-				conflicts.push({
-					type: 'TEACHER',
-					details: {
-						startTime: teacherConflict.startTime.toTimeString().slice(0, 5),
-						endTime: teacherConflict.endTime.toTimeString().slice(0, 5),
-						dayOfWeek: teacherConflict.dayOfWeek,
-						entityId: teacherConflict.teacherId,
-						additionalInfo: `Class: ${teacherConflict.timetable.class.name}`
+				// Check teacher availability
+				const teacherConflict = await ctx.prisma.period.findFirst({
+					where: {
+						teacherId: input.period.teacherId,
+						dayOfWeek: dayOfWeek,
+						OR: [
+							{
+								startTime: { lte: new Date(`1970-01-01T${input.period.endTime}`) },
+								endTime: { gte: new Date(`1970-01-01T${input.period.startTime}`) }
+							}
+						]
+					},
+					include: {
+						timetable: {
+							include: {
+								class: true
+							}
+						}
 					}
 				});
-			}
 
-			// Check classroom availability
-			const classroomConflict = await ctx.prisma.period.findFirst({
-				where: {
-					classroomId: input.period.classroomId,
-					dayOfWeek: input.period.dayOfWeek,
-					OR: [
-						{
-							startTime: { lte: new Date(`1970-01-01T${input.period.endTime}`) },
-							endTime: { gte: new Date(`1970-01-01T${input.period.startTime}`) }
+				if (teacherConflict) {
+					conflicts.push({
+						type: 'TEACHER',
+						details: {
+							startTime: teacherConflict.startTime.toTimeString().slice(0, 5),
+							endTime: teacherConflict.endTime.toTimeString().slice(0, 5),
+							dayOfWeek: teacherConflict.dayOfWeek,
+							entityId: teacherConflict.teacherId,
+							additionalInfo: `Class: ${teacherConflict.timetable.class.name}`
 						}
-					]
-				},
-				include: {
-					timetable: {
-						include: {
-							class: true
-						}
-					}
+					});
 				}
-			});
 
-			if (classroomConflict) {
-				conflicts.push({
-					type: 'CLASSROOM',
-					details: {
-						startTime: classroomConflict.startTime.toTimeString().slice(0, 5),
-						endTime: classroomConflict.endTime.toTimeString().slice(0, 5),
-						dayOfWeek: classroomConflict.dayOfWeek,
-						entityId: classroomConflict.classroomId,
-						additionalInfo: `Class: ${classroomConflict.timetable.class.name}`
+				// Check classroom availability
+				const classroomConflict = await ctx.prisma.period.findFirst({
+					where: {
+						classroomId: input.period.classroomId,
+						dayOfWeek: dayOfWeek,
+						OR: [
+							{
+								startTime: { lte: new Date(`1970-01-01T${input.period.endTime}`) },
+								endTime: { gte: new Date(`1970-01-01T${input.period.startTime}`) }
+							}
+						]
+					},
+					include: {
+						timetable: {
+							include: {
+								class: true
+							}
+						}
 					}
 				});
+
+				if (classroomConflict) {
+					conflicts.push({
+						type: 'CLASSROOM',
+						details: {
+							startTime: classroomConflict.startTime.toTimeString().slice(0, 5),
+							endTime: classroomConflict.endTime.toTimeString().slice(0, 5),
+							dayOfWeek: classroomConflict.dayOfWeek,
+							entityId: classroomConflict.classroomId,
+							additionalInfo: `Class: ${classroomConflict.timetable.class.name}`
+						}
+					});
+				}
 			}
 
 			return {
@@ -409,7 +412,7 @@ export const timetableRouter = createTRPCRouter({
 		.input(z.object({
 			startTime: z.date(),
 			endTime: z.date(),
-			dayOfWeek: z.number().min(1).max(7),
+			daysOfWeek: z.array(z.number().min(1).max(7)),
 			durationInMinutes: z.number().int().min(1).max(240),
 			subjectId: z.string(),
 			classroomId: z.string(),
@@ -417,36 +420,6 @@ export const timetableRouter = createTRPCRouter({
 			timetableId: z.string(),
 		}))
 		.mutation(async ({ ctx, input }) => {
-			// Check for conflicts
-			const existingPeriod = await ctx.prisma.period.findFirst({
-				where: {
-					OR: [
-						{
-							AND: [
-								{ teacher: { id: input.teacherId } },
-								{ startTime: { lte: input.endTime } },
-								{ endTime: { gte: input.startTime } },
-							],
-						},
-						{
-							AND: [
-								{ classroomId: input.classroomId },
-								{ startTime: { lte: input.endTime } },
-								{ endTime: { gte: input.startTime } },
-							],
-						},
-					],
-				},
-			});
-
-			if (existingPeriod) {
-				throw new TRPCError({
-					code: "CONFLICT",
-					message: "Schedule conflict detected",
-				});
-			}
-
-			// Get teacher profile ID from user ID
 			const teacherProfile = await ctx.prisma.teacherProfile.findFirst({
 				where: { userId: input.teacherId },
 			});
@@ -458,45 +431,49 @@ export const timetableRouter = createTRPCRouter({
 				});
 			}
 
-			// Create period with teacher association
-			const period = await ctx.prisma.period.create({
-				data: {
-					startTime: input.startTime,
-					endTime: input.endTime,
-					dayOfWeek: input.dayOfWeek,
-					durationInMinutes: input.durationInMinutes,
-					subject: { connect: { id: input.subjectId } },
-					classroom: { connect: { id: input.classroomId } },
-					timetable: { connect: { id: input.timetableId } },
-					teacher: { connect: { id: teacherProfile.id } },
-				},
-				include: {
-					subject: true,
-					classroom: true,
-					teacher: {
-						include: {
-							user: true,
+			// Create periods for each selected day
+			const periods = await Promise.all(
+				input.daysOfWeek.map(async (dayOfWeek) => {
+					return ctx.prisma.period.create({
+						data: {
+							startTime: input.startTime,
+							endTime: input.endTime,
+							dayOfWeek,
+							durationInMinutes: input.durationInMinutes,
+							subject: { connect: { id: input.subjectId } },
+							classroom: { connect: { id: input.classroomId } },
+							timetable: { connect: { id: input.timetableId } },
+							teacher: { connect: { id: teacherProfile.id } },
 						},
-					},
-				},
-			});
+						include: {
+							subject: true,
+							classroom: true,
+							teacher: {
+								include: {
+									user: true,
+								},
+							},
+						},
+					});
+				})
+			);
 
-			return period;
+			return periods;
 		}),
+
 
 	updatePeriod: protectedProcedure
 		.input(z.object({
 			id: z.string(),
 			startTime: z.date(),
 			endTime: z.date(),
-			dayOfWeek: z.number().min(1).max(7),
+			daysOfWeek: z.array(z.number().min(1).max(7)),
 			durationInMinutes: z.number().int().min(1).max(240),
 			subjectId: z.string(),
 			classroomId: z.string(),
 			teacherId: z.string(),
 		}))
 		.mutation(async ({ ctx, input }) => {
-			// Get teacher profile ID from user ID
 			const teacherProfile = await ctx.prisma.teacherProfile.findFirst({
 				where: { userId: input.teacherId },
 			});
@@ -508,58 +485,39 @@ export const timetableRouter = createTRPCRouter({
 				});
 			}
 
-			// Check for conflicts excluding current period
-			const existingPeriod = await ctx.prisma.period.findFirst({
-				where: {
-					id: { not: input.id },
-					OR: [
-						{
-							AND: [
-								{ teacher: { id: teacherProfile.id } },
-								{ startTime: { lte: input.endTime } },
-								{ endTime: { gte: input.startTime } },
-							],
-						},
-						{
-							AND: [
-								{ classroomId: input.classroomId },
-								{ startTime: { lte: input.endTime } },
-								{ endTime: { gte: input.startTime } },
-							],
-						},
-					],
-				},
+			// Delete the existing period
+			await ctx.prisma.period.delete({
+				where: { id: input.id }
 			});
 
-			if (existingPeriod) {
-				throw new TRPCError({
-					code: "CONFLICT",
-					message: "Schedule conflict detected",
-				});
-			}
-
-			const period = await ctx.prisma.period.update({
-				where: { id: input.id },
-				data: {
-					startTime: input.startTime,
-					endTime: input.endTime,
-					dayOfWeek: input.dayOfWeek,
-					durationInMinutes: input.durationInMinutes,
-					subject: { connect: { id: input.subjectId } },
-					classroom: { connect: { id: input.classroomId } },
-					teacher: { connect: { id: teacherProfile.id } },
-				},
-				include: {
-					subject: true,
-					classroom: true,
-					teacher: {
+			// Create new periods for each selected day
+			const periods = await Promise.all(
+				input.daysOfWeek.map(async (dayOfWeek) => {
+					return ctx.prisma.period.create({
+						data: {
+							startTime: input.startTime,
+							endTime: input.endTime,
+							dayOfWeek,
+							durationInMinutes: input.durationInMinutes,
+							subject: { connect: { id: input.subjectId } },
+							classroom: { connect: { id: input.classroomId } },
+							teacher: { connect: { id: teacherProfile.id } },
+							timetable: { connect: { id: (await ctx.prisma.period.findUnique({ where: { id: input.id } }))?.timetableId! } }
+						},
 						include: {
-							user: true,
+							subject: true,
+							classroom: true,
+							teacher: {
+								include: {
+									user: true,
+								},
+							},
 						},
-					},
-				},
-			});
+					});
+				})
+			);
 
-			return period;
+			return periods;
 		}),
+
 });
