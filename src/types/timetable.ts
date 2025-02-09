@@ -14,7 +14,8 @@ export const periodInputSchema = z.object({
 	subjectId: z.string(),
 	teacherId: z.string(),
 	classroomId: z.string(),
-	durationInMinutes: z.number().default(45)
+	durationInMinutes: z.number().default(45),
+	timetableId: z.string()
 });
 
 export const timetableInputSchema = z.object({

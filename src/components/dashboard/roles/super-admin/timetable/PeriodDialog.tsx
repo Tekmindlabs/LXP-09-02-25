@@ -41,6 +41,7 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 	const { data: classrooms } = api.classroom.list.useQuery();
 	const { data: subjects } = api.subject.list.useQuery();
 	const { mutateAsync: checkAvailability } = api.timetable.checkAvailability.useMutation();
+	const { mutateAsync: createPeriod } = api.timetable.createPeriod.useMutation();
 
 	const onSubmit = async (data: PeriodInput) => {
 		try {
@@ -50,7 +51,8 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 			
 			const updatedData = {
 				...data,
-				durationInMinutes
+				durationInMinutes,
+				timetableId
 			};
 
 			const availability = await checkAvailability({
@@ -81,16 +83,25 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 				return;
 			}
 
-			onSave(updatedData);
-			onClose();
-			toast({
-				title: "Success",
-				description: "Period scheduled successfully",
+			// If available, create the period
+			const result = await createPeriod({
+				...updatedData,
+				startTime,
+				endTime
 			});
+			
+			if (result) {
+				onSave(updatedData);
+				onClose();
+				toast({
+					title: "Success",
+					description: "Period created successfully"
+				});
+			}
 		} catch (error) {
 			toast({
 				title: "Error",
-				description: "Failed to validate schedule",
+				description: "Failed to create period",
 				variant: "destructive"
 			});
 		}

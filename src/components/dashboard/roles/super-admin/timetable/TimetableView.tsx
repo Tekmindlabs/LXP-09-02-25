@@ -14,7 +14,10 @@ import { PeriodInput } from "@/types/timetable";
 type PeriodWithRelations = PrismaPeriod & {
 	subject: { name: string };
 	teacher: TeacherProfile & { 
-		user: { name: string | null } 
+		user: { 
+			id: string;
+			name: string | null;
+		} 
 	};
 	classroom: Classroom;
 	timetable: {
@@ -38,7 +41,7 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 	const [selectedPeriod, setSelectedPeriod] = useState<Partial<PeriodInput> | undefined>(undefined);
 
 	const { data: timetable, isLoading } = api.timetable.getById.useQuery(timetableId);
-	const utils = api.useContext();
+	const utils = api.useUtils();
 
 	if (isLoading) return <div>Loading...</div>;
 	if (!timetable) return <div>Timetable not found</div>;
@@ -105,11 +108,12 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 		setSelectedPeriod({
 			startTime: period.startTime.toISOString().slice(11, 16),
 			endTime: period.endTime.toISOString().slice(11, 16),
-			dayOfWeek: period.dayOfWeek,
-			durationInMinutes: Math.round((period.endTime.getTime() - period.startTime.getTime()) / 60000),
-			teacherId: period.teacherId,
+			daysOfWeek: [period.dayOfWeek], // Changed to array since PeriodInput expects array
+			durationInMinutes: period.durationInMinutes,
+			teacherId: period.teacher.user.id,
 			classroomId: period.classroomId,
-			subjectId: period.subjectId
+			subjectId: period.subjectId,
+			timetableId: period.timetableId
 		});
 		setIsDialogOpen(true);
 	};
