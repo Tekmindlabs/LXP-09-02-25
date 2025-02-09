@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from "react";
 import { api } from "@/utils/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,9 +7,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import PeriodDialog from "../super-admin/timetable/PeriodDialog";
-import type { Period } from "@prisma/client";
+import { PeriodDialog } from "../timetable/PeriodDialog";
+import { TeacherAnalyticsSection } from "./analytics/TeacherAnalyticsSection";
+import type { Period, ClassActivity } from "@prisma/client";
 import type { RouterOutputs } from "@/utils/api";
+
+const TabSections = {
+	PROFILE: 'profile',
+	SCHEDULE: 'schedule',
+	ASSIGNMENTS: 'assignments',
+	ANALYTICS: 'analytics'
+} as const;
+
+type TabSection = typeof TabSections[keyof typeof TabSections];
 
 type ExtendedPeriod = Period & {
 	subject: { name: string };
@@ -22,7 +34,7 @@ interface TeacherProfileViewProps {
 }
 
 export default function TeacherProfileView({ teacherId }: TeacherProfileViewProps) {
-	const [activeTab, setActiveTab] = useState('info');
+	const [activeTab, setActiveTab] = useState<TabSection>(TabSections.PROFILE);
 	const [calendarView, setCalendarView] = useState<ViewMode>('monthly');
 	const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -141,12 +153,13 @@ export default function TeacherProfileView({ teacherId }: TeacherProfileViewProp
 		<div className="space-y-6">
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
 				<TabsList>
-					<TabsTrigger value="info">Information</TabsTrigger>
-					<TabsTrigger value="schedule">Schedule</TabsTrigger>
-					<TabsTrigger value="assignments">Assignments</TabsTrigger>
+					<TabsTrigger value={TabSections.PROFILE}>Profile</TabsTrigger>
+					<TabsTrigger value={TabSections.SCHEDULE}>Schedule</TabsTrigger>
+					<TabsTrigger value={TabSections.ASSIGNMENTS}>Assignments</TabsTrigger>
+					<TabsTrigger value={TabSections.ANALYTICS}>Analytics</TabsTrigger>
 				</TabsList>
 
-				<TabsContent value="info">
+				<TabsContent value={TabSections.PROFILE}>
 					<Card>
 						<CardHeader>
 							<CardTitle>Teacher Profile</CardTitle>
@@ -183,7 +196,7 @@ export default function TeacherProfileView({ teacherId }: TeacherProfileViewProp
 					</Card>
 				</TabsContent>
 
-				<TabsContent value="schedule">
+				<TabsContent value={TabSections.SCHEDULE}>
 					<div className="grid md:grid-cols-[1fr_300px] gap-6">
 						<Card>
 							<CardContent className="p-6">
@@ -202,7 +215,7 @@ export default function TeacherProfileView({ teacherId }: TeacherProfileViewProp
 					</div>
 				</TabsContent>
 
-				<TabsContent value="assignments">
+				<TabsContent value={TabSections.ASSIGNMENTS}>
 					<Card>
 						<CardHeader>
 							<CardTitle>Upcoming Assignments</CardTitle>
@@ -235,7 +248,10 @@ export default function TeacherProfileView({ teacherId }: TeacherProfileViewProp
 						</CardContent>
 					</Card>
 				</TabsContent>
-			</Tabs>
+			<TabsContent value={TabSections.ANALYTICS}>
+				<TeacherAnalyticsSection teacherId={teacherId} />
+			</TabsContent>
+		</Tabs>
 
 			{isDialogOpen && timetableId && (
 				<PeriodDialog

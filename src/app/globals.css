@@ -24,6 +24,13 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+    
+    --secondary-light: hsl(var(--secondary) / 0.2);
+    --secondary-hover: hsl(var(--secondary) / 0.3);
+    
+    /* Break time specific colors */
+    --break-short: hsl(var(--secondary) / 0.15);
+    --break-lunch: hsl(var(--secondary) / 0.25);
   }
  
   .dark {

@@ -4,6 +4,19 @@ import { Status, UserType, type Prisma } from "@prisma/client";
 import * as XLSX from 'xlsx';
 import { generatePassword } from "../../../utils/password";
 
+interface WeeklyHours {
+	dayName: string;
+	totalHours: number;
+}
+
+interface ClassMetrics {
+	classId: string;
+	className: string;
+	averageScore: number;
+	totalStudents: number;
+	completedAssignments: number;
+}
+
 // Excel row data interface
 interface ExcelRow {
 	Name: string;
@@ -509,5 +522,63 @@ export const teacherRouter = createTRPCRouter({
 			}
 
 			return results;
+		}),
+
+	getTeacherAnalytics: protectedProcedure
+		.input(z.object({
+			teacherId: z.string()
+		}))
+		.query(async ({ ctx, input }) => {
+			const weeklyHours = await ctx.prisma.$queryRaw<WeeklyHours[]>`
+				SELECT 
+					CASE "dayOfWeek"
+						WHEN 1 THEN 'Monday'
+						WHEN 2 THEN 'Tuesday'
+						WHEN 3 THEN 'Wednesday'
+						WHEN 4 THEN 'Thursday'
+						WHEN 5 THEN 'Friday'
+					END as "dayName",
+					SUM(EXTRACT(EPOCH FROM ("endTime" - "startTime")) / 3600) as "totalHours"
+				FROM "Period"
+				WHERE "teacherId" = ${input.teacherId}
+				GROUP BY "dayOfWeek"
+				ORDER BY "dayOfWeek"
+			`;
+
+			const subjects = await ctx.prisma.teacherSubject.findMany({
+				where: { teacherId: input.teacherId },
+				include: {
+					subject: true,
+				},
+			});
+
+			const classes = await ctx.prisma.teacherClass.findMany({
+				where: { teacherId: input.teacherId },
+				include: {
+					class: {
+						include: {
+							students: true,
+							activities: true,
+						},
+					},
+				},
+			});
+
+			const classMetrics: ClassMetrics[] = classes.map(tc => ({
+				classId: tc.classId,
+				className: tc.class.name,
+				averageScore: 85, // Placeholder - implement actual calculation
+				totalStudents: tc.class.students.length,
+				completedAssignments: tc.class.activities.length,
+			}));
+
+			return {
+				weeklyHours,
+				subjects: subjects.map(s => ({
+					name: s.subject.name,
+					hoursPerWeek: 5, // Placeholder - implement actual calculation
+				})),
+				classes: classMetrics,
+			};
 		})
 });

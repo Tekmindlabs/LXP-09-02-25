@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { use } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TeacherView } from "@/components/dashboard/roles/super-admin/teacher/TeacherView";
 import { Button } from "@/components/ui/button";
 
 export default function ViewTeacherPage({ params }: { params: { role: string; id: string } }) {
 	const router = useRouter();
-	const teacherId = params.id;
+	const { id: teacherId } = use(Promise.resolve(params));
 
 
 
