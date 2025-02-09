@@ -1,5 +1,3 @@
-// src/types/class-activity.ts
-
 export enum ActivityType {
 	// Online Activities
 	QUIZ_MULTIPLE_CHOICE = 'QUIZ_MULTIPLE_CHOICE',
@@ -17,29 +15,29 @@ export enum ActivityType {
 	CLASS_PROJECT = 'CLASS_PROJECT',
 	CLASS_PRESENTATION = 'CLASS_PRESENTATION',
 	CLASS_TEST = 'CLASS_TEST',
-	CLASS_EXAM = 'CLASS_EXAM',
+	CLASS_EXAM = 'CLASS_EXAM'
 }
 
 export enum ActivityMode {
 	ONLINE = 'ONLINE',
-	IN_CLASS = 'IN_CLASS',
+	IN_CLASS = 'IN_CLASS'
 }
 
 export enum ActivityStatus {
 	DRAFT = 'DRAFT',
 	PUBLISHED = 'PUBLISHED',
-	ARCHIVED = 'ARCHIVED',
+	ARCHIVED = 'ARCHIVED'
 }
 
 export enum ActivityGradingType {
 	AUTOMATIC = 'AUTOMATIC',
-	MANUAL = 'MANUAL',
+	MANUAL = 'MANUAL'
 }
 
 export enum ActivityViewType {
 	PREVIEW = 'PREVIEW',
 	STUDENT = 'STUDENT',
-	CONFIGURATION = 'CONFIGURATION',
+	CONFIGURATION = 'CONFIGURATION'
 }
 
 export enum ActivityResourceType {
@@ -47,7 +45,7 @@ export enum ActivityResourceType {
 	VIDEO = 'VIDEO',
 	AUDIO = 'AUDIO',
 	LINK = 'LINK',
-	IMAGE = 'IMAGE',
+	IMAGE = 'IMAGE'
 }
 
 export enum ActivitySubmissionStatus {
@@ -55,7 +53,7 @@ export enum ActivitySubmissionStatus {
 	SUBMITTED = 'SUBMITTED',
 	GRADED = 'GRADED',
 	LATE = 'LATE',
-	MISSED = 'MISSED',
+	MISSED = 'MISSED'
 }
 
 export interface ActivityConfiguration {
@@ -77,6 +75,20 @@ export interface ActivityConfiguration {
 	};
 }
 
+export interface ActivityResource {
+	id?: string;
+	title: string;
+	type: ActivityResourceType;
+	url: string;
+	fileInfo?: {
+		size: number;
+		createdAt: Date;
+		updatedAt: Date;
+		mimeType: string;
+		publicUrl: string;
+	};
+}
+
 export interface ActivitySubmission {
 	id: string;
 	activityId: string;
@@ -93,11 +105,33 @@ export interface ActivitySubmission {
 	gradedAt?: Date;
 }
 
-export interface GradingResult {
-	obtainedMarks: number;
-	totalMarks: number;
-	feedback?: string;
-	gradedBy: string;
-	gradedAt: Date;
-	isPassing: boolean;
+export interface ClassActivity {
+	id: string;
+	title: string;
+	description?: string;
+	type: ActivityType;
+	status: ActivityStatus;
+	classId?: string;
+	subjectId: string;
+	classGroupId?: string;
+	deadline?: Date;
+	configuration: ActivityConfiguration;
+	resources?: ActivityResource[];
+	submissions?: ActivitySubmission[];
+	createdAt: Date;
+	updatedAt: Date;
+	class?: { name: string };
+	subject: { name: string };
+	classGroup?: { name: string };
 }
+
+export type FormData = {
+	title: string;
+	description?: string;
+	type: ActivityType;
+	classId?: string;
+	subjectId: string;
+	classGroupId?: string;
+	configuration: ActivityConfiguration;
+	resources?: ActivityResource[];
+};

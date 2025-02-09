@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { createTRPCRouter, permissionProtectedProcedure } from "../trpc";
-import { Prisma } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { Permissions } from "@/utils/permissions";
-import type { Session } from "next-auth";
-import { ActivitySubmissionStatus } from "../../types/class-activity";
+import { 
+	ActivitySubmissionStatus,
+	ActivityConfiguration,
+	ActivityGradingType
+} from "@/types/class-activity";
 
 interface GradeData {
 	obtainedMarks: number;
@@ -13,9 +15,9 @@ interface GradeData {
 	gradedBy: string;
 	gradedAt: Date;
 	status: ActivitySubmissionStatus;
-	content: Prisma.InputJsonValue;
+	content: any;
 	isPassing: boolean;
-	gradingType: 'MANUAL' | 'AUTOMATIC';
+	gradingType: ActivityGradingType;
 }
 
 export const gradebookRouter = createTRPCRouter({
@@ -149,87 +151,56 @@ export const gradebookRouter = createTRPCRouter({
 			activityId: z.string(),
 			studentId: z.string(),
 			obtainedMarks: z.number().min(0),
-			totalMarks: z.number().min(1, "Total marks must be greater than 0"),
 			feedback: z.string().optional(),
 		}))
 		.mutation(async ({ ctx, input }) => {
-			try {
-				// Since we're using permissionProtectedProcedure, we know session exists
-				// but we still need to check for type safety
-				const { session } = ctx;
-				if (!session?.user?.id) {
-					throw new TRPCError({
-						code: 'UNAUTHORIZED',
-						message: 'User session not found',
-					});
-				}
+			const activity = await ctx.prisma.classActivity.findUnique({
+				where: { id: input.activityId }
+			});
 
-				// Validate obtained marks against total marks
-				if (input.obtainedMarks > input.totalMarks) {
-					throw new TRPCError({
-						code: 'BAD_REQUEST',
-						message: 'Obtained marks cannot exceed total marks',
-					});
-				}
-
-				// Validate obtained marks against total marks
-				const activity = await ctx.prisma.classActivity.findUnique({
-					where: { id: input.activityId },
-					include: { configuration: true }
-				});
-
-				if (!activity?.configuration) {
-					throw new TRPCError({
-						code: 'NOT_FOUND',
-						message: 'Activity or configuration not found',
-					});
-				}
-
-				if (input.obtainedMarks > activity.configuration.totalMarks) {
-					throw new TRPCError({
-						code: 'BAD_REQUEST',
-						message: 'Obtained marks cannot exceed total marks',
-					});
-				}
-
-				const isPassing = input.obtainedMarks >= activity.configuration.passingMarks;
-
-				const submissionData: GradeData = {
-					obtainedMarks: input.obtainedMarks,
-					totalMarks: activity.configuration.totalMarks,
-					feedback: input.feedback,
-					gradedBy: session.user.id,
-					gradedAt: new Date(),
-					status: ActivitySubmissionStatus.GRADED,
-					content: {} as Prisma.InputJsonValue,
-					isPassing,
-					gradingType: activity.configuration.gradingType
-				};
-
-				return ctx.prisma.activitySubmission.upsert({
-					where: {
-						activityId_studentId: {
-							activityId: input.activityId,
-							studentId: input.studentId,
-						}
-					},
-					update: submissionData,
-					create: {
-						activityId: input.activityId,
-						studentId: input.studentId,
-						...submissionData
-					},
-				});
-			} catch (error) {
-				if (error instanceof TRPCError) {
-					throw error;
-				}
-				console.error('Error in gradeActivity mutation:', error);
+			if (!activity) {
 				throw new TRPCError({
-					code: 'INTERNAL_SERVER_ERROR',
-					message: 'Failed to save grades. Please try again.',
-					cause: error
+					code: 'NOT_FOUND',
+					message: 'Activity not found',
 				});
 			}
+
+			const config = activity.configuration as unknown as ActivityConfiguration;
+			if (input.obtainedMarks > config.totalMarks) {
+				throw new TRPCError({
+					code: 'BAD_REQUEST',
+					message: 'Obtained marks cannot exceed total marks',
+				});
+			}
+
+			const isPassing = input.obtainedMarks >= config.passingMarks;
+
+			const submissionData: GradeData = {
+				obtainedMarks: input.obtainedMarks,
+				totalMarks: config.totalMarks,
+				feedback: input.feedback,
+				gradedBy: ctx.session.user.id,
+				gradedAt: new Date(),
+				status: ActivitySubmissionStatus.GRADED,
+				content: {},
+				isPassing,
+				gradingType: config.gradingType
+			};
+
+			return ctx.prisma.activitySubmission.upsert({
+				where: {
+					activityId_studentId: {
+						activityId: input.activityId,
+						studentId: input.studentId,
+					}
+				},
+				update: submissionData,
+				create: {
+					activityId: input.activityId,
+					studentId: input.studentId,
+					...submissionData
+				},
+			});
 		}),
+
 });

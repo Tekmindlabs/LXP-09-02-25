@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/utils/api";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { ActivityType, ActivityStatus } from "@prisma/client";
-import { formatDate } from "@/lib/utils";
+import { ActivityType } from "@prisma/client";
 
 interface Props {
 	params: {
@@ -18,62 +17,78 @@ type Activity = {
 	id: string;
 	title: string;
 	type: ActivityType;
-	status: ActivityStatus;
+	status: string;
 	deadline: Date | null;
 	class: { name: string } | null;
 	subject: { name: string };
 };
 
-const columns: ColumnDef<Activity>[] = [
-	{
-		accessorKey: "title",
-		header: "Title",
-	},
-	{
-		accessorKey: "type",
-		header: "Type",
-		cell: ({ row }) => {
-			return row.original.type.replace(/_/g, ' ');
+function formatDate(date: Date | null): string {
+	if (!date) return '-';
+	return new Date(date).toLocaleDateString('en-US', {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
+	});
+}
+
+export default function ClassActivityPage({ params }: Props) {
+	const router = useRouter();
+	const { data: activities, isLoading } = api.classActivity.getAll.useQuery({}, {
+		select: (data) => data.map(activity => ({
+			id: activity.id,
+			title: activity.title,
+			type: activity.type,
+			status: activity.status,
+			deadline: activity.deadline,
+			class: activity.class,
+			subject: activity.subject
+		}))
+	});
+
+	const columns: ColumnDef<Activity>[] = [
+		{
+			accessorKey: "title",
+			header: "Title",
 		},
-	},
-	{
-		accessorKey: "class.name",
-		header: "Class",
-	},
-	{
-		accessorKey: "subject.name",
-		header: "Subject",
-	},
-	{
-		accessorKey: "status",
-		header: "Status",
-	},
-	{
-		accessorKey: "deadline",
-		header: "Deadline",
-		cell: ({ row }) => {
-			return row.original.deadline ? formatDate(row.original.deadline) : '-';
+		{
+			accessorKey: "type",
+			header: "Type",
+			cell: ({ row }) => {
+				return row.original.type.replace(/_/g, ' ');
+			},
 		},
-	},
-	{
-		id: "actions",
-		cell: ({ row }) => {
-			const router = useRouter();
-			return (
+		{
+			accessorKey: "class.name",
+			header: "Class",
+		},
+		{
+			accessorKey: "subject.name",
+			header: "Subject",
+		},
+		{
+			accessorKey: "status",
+			header: "Status",
+		},
+		{
+			accessorKey: "deadline",
+			header: "Deadline",
+			cell: ({ row }) => formatDate(row.original.deadline),
+		},
+		{
+			id: "actions",
+			cell: ({ row }) => (
 				<Button
 					variant="outline"
 					onClick={() => router.push(`/dashboard/${params.role}/class-activity/${row.original.id}/edit`)}
 				>
 					Edit
 				</Button>
-			);
+			),
 		},
-	},
-];
-
-export default function ClassActivityPage({ params }: Props) {
-	const router = useRouter();
-	const { data: activities, isLoading } = api.classActivity.getAll.useQuery();
+	];
 
 	return (
 		<div className="container mx-auto py-8">

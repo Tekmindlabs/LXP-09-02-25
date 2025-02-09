@@ -4,10 +4,41 @@ import { Input } from "@/components/ui/input";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { ActivityResourceType } from "@prisma/client";
+
+export enum ActivityResourceType {
+	DOCUMENT = 'DOCUMENT',
+	VIDEO = 'VIDEO',
+	AUDIO = 'AUDIO',
+	LINK = 'LINK',
+	IMAGE = 'IMAGE'
+}
+
+interface Resource {
+	title: string;
+	type: ActivityResourceType;
+	url: string;
+	fileInfo?: {
+		size: number;
+		createdAt: Date;
+		updatedAt: Date;
+		mimeType: string;
+		publicUrl: string;
+	};
+}
 
 interface ResourcesSectionProps {
-	form: UseFormReturn<any>;
+	form: UseFormReturn<{
+		resources?: Resource[];
+		[key: string]: any;
+	}>;
+}
+
+interface FileInfo {
+	size: number;
+	createdAt: Date;
+	updatedAt: Date;
+	mimeType: string;
+	publicUrl: string;
 }
 
 export function ResourcesSection({ form }: ResourcesSectionProps) {
@@ -23,7 +54,7 @@ export function ResourcesSection({ form }: ResourcesSectionProps) {
 
 	const handleRemoveResource = (index: number) => {
 		const currentResources = form.getValues('resources') || [];
-		form.setValue('resources', currentResources.filter((_, i) => i !== index));
+		form.setValue('resources', currentResources.filter((_: Resource, i: number) => i !== index));
 	};
 
 	return (
@@ -35,7 +66,7 @@ export function ResourcesSection({ form }: ResourcesSectionProps) {
 				</Button>
 			</div>
 
-			{resources.map((_, index) => (
+			{resources.map((_: Resource, index: number) => (
 				<div key={index} className="space-y-4 p-4 border rounded-md">
 					<div className="flex justify-end">
 						<Button
@@ -111,23 +142,21 @@ export function ResourcesSection({ form }: ResourcesSectionProps) {
 										</div>
 									) : (
 										<FileUpload
-											endpoint="resourceUploader"
-											onClientUploadComplete={(res) => {
-												if (res?.[0]) {
-													field.onChange(res[0].url);
-													form.setValue(`resources.${index}.fileInfo`, {
-														size: res[0].size,
-														createdAt: new Date(),
-														updatedAt: new Date(),
-														mimeType: res[0].mimeType,
-														publicUrl: res[0].url
-													});
-												}
+											onUploadComplete={(filePath: string, fileInfo: FileInfo) => {
+												field.onChange(filePath);
+												form.setValue(`resources.${index}.fileInfo`, {
+													size: fileInfo.size,
+													createdAt: fileInfo.createdAt,
+													updatedAt: fileInfo.updatedAt,
+													mimeType: fileInfo.mimeType,
+													publicUrl: fileInfo.publicUrl
+												});
 											}}
-											onUploadError={(error: Error) => {
-												console.error(error);
-											}}
+											maxSize={10 * 1024 * 1024} // 10MB
+											allowedTypes={['image/*', 'application/pdf', 'video/*', 'audio/*']}
 										/>
+
+
 									)}
 								</FormControl>
 								<FormMessage />

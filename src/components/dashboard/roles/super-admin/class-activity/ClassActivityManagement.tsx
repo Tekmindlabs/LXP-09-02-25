@@ -2,27 +2,23 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { PlusCircle } from "lucide-react";
 import ClassActivityList from "./ClassActivityList";
 import ClassActivityForm from "./ClassActivityForm";
 
 export default function ClassActivityManagement() {
-	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
 
 	const handleEdit = (id: string) => {
 		setSelectedActivityId(id);
-		setIsFormOpen(true);
 	};
 
 	const handleCreate = () => {
 		setSelectedActivityId(null);
-		setIsFormOpen(true);
 	};
 
 	const handleClose = () => {
-		setIsFormOpen(false);
 		setSelectedActivityId(null);
 	};
 
@@ -38,13 +34,14 @@ export default function ClassActivityManagement() {
 
 			<ClassActivityList onEdit={handleEdit} />
 
-			<Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-				<ClassActivityForm
-					activityId={selectedActivityId}
-					onClose={handleClose}
-				/>
+			<Dialog open={!!selectedActivityId} onOpenChange={() => handleClose()}>
+				{selectedActivityId && (
+					<ClassActivityForm 
+						activityId={selectedActivityId} 
+						onClose={handleClose}
+					/>
+				)}
 			</Dialog>
-
 		</div>
 	);
 }

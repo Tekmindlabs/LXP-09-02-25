@@ -1,77 +1,101 @@
+import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { z } from "zod";
 import { 
 	ActivityType, 
 	ActivityMode, 
-	ActivityStatus, 
-	ActivityGradingType, 
+	ActivityStatus,
+	ActivityGradingType,
 	ActivityViewType,
 	ActivityResourceType,
-	ActivitySubmissionStatus 
-} from "../../types/class-activity";
+	ActivitySubmissionStatus,
+	ActivityConfiguration,
+	ActivityResource
+} from "@/types/class-activity";
+import { Prisma } from "@prisma/client";
+
+const configurationSchema = z.object({
+	activityMode: z.nativeEnum(ActivityMode),
+	isGraded: z.boolean(),
+	totalMarks: z.number().min(1),
+	passingMarks: z.number().min(1),
+	gradingType: z.nativeEnum(ActivityGradingType),
+	availabilityDate: z.date(),
+	deadline: z.date(),
+	instructions: z.string().optional(),
+	timeLimit: z.number().optional(),
+	attempts: z.number().optional(),
+	viewType: z.nativeEnum(ActivityViewType),
+	autoGradingConfig: z.object({
+		scorePerQuestion: z.number(),
+		penaltyPerWrongAnswer: z.number(),
+		allowPartialCredit: z.boolean()
+	}).optional()
+});
+
+
+const resourceSchema = z.object({
+	title: z.string(),
+	type: z.nativeEnum(ActivityResourceType),
+	url: z.string(),
+	fileInfo: z.object({
+		size: z.number(),
+		createdAt: z.date(),
+		updatedAt: z.date(),
+		mimeType: z.string(),
+		publicUrl: z.string()
+	}).optional()
+});
+
 
 
 export const classActivityRouter = createTRPCRouter({
 	create: protectedProcedure
 		.input(z.object({
-			title: z.string(),
+			title: z.string().min(1),
 			description: z.string().optional(),
 			type: z.nativeEnum(ActivityType),
 			classId: z.string().optional(),
 			subjectId: z.string(),
 			classGroupId: z.string().optional(),
-			configuration: z.object({
-				activityMode: z.nativeEnum(ActivityMode),
-				isGraded: z.boolean().default(true),
-				totalMarks: z.number().min(1),
-				passingMarks: z.number().min(1),
-				gradingType: z.nativeEnum(ActivityGradingType),
-				availabilityDate: z.date(),
-				deadline: z.date(),
-				instructions: z.string().optional(),
-				timeLimit: z.number().optional(),
-				attempts: z.number().optional(),
-				viewType: z.nativeEnum(ActivityViewType),
-				autoGradingConfig: z.object({
-					scorePerQuestion: z.number(),
-					penaltyPerWrongAnswer: z.number(),
-					allowPartialCredit: z.boolean()
-				}).optional()
-			}),
-			resources: z.array(z.object({
-				title: z.string(),
-				type: z.nativeEnum(ActivityResourceType),
-				url: z.string()
-			})).optional()
+			configuration: configurationSchema,
+			resources: z.array(resourceSchema).optional()
 		}))
 		.mutation(async ({ ctx, input }) => {
 			const { resources, configuration, ...activityData } = input;
-			
+
+			const configJson = {
+				...configuration,
+				availabilityDate: configuration.availabilityDate.toISOString(),
+				deadline: configuration.deadline.toISOString(),
+			};
+
+			const resourcesData = resources?.map(resource => ({
+				title: resource.title,
+				type: resource.type,
+				url: resource.url,
+				fileInfo: resource.fileInfo ? {
+					...resource.fileInfo,
+					createdAt: resource.fileInfo.createdAt.toISOString(),
+					updatedAt: resource.fileInfo.updatedAt.toISOString(),
+				} : undefined
+			}));
+
 			return ctx.prisma.classActivity.create({
 				data: {
 					...activityData,
 					status: ActivityStatus.PUBLISHED,
-					configuration: {
-						create: configuration
-					},
-					...(resources && {
-						resources: {
-							create: resources
-						}
-					})
+					configuration: configJson as Prisma.JsonObject,
+					resources: resourcesData ? { create: resourcesData } : undefined,
 				},
+
 				include: {
-					configuration: true,
-					resources: true,
-					class: {
-						select: { name: true }
-					},
-					classGroup: {
-						select: { name: true }
-					}
+					class: { select: { name: true } },
+					classGroup: { select: { name: true } },
+					subject: { select: { name: true } }
 				}
 			});
+
 		}),
 
 	getAll: protectedProcedure
@@ -82,29 +106,24 @@ export const classActivityRouter = createTRPCRouter({
 			classGroupId: z.string().optional()
 		}))
 		.query(async ({ ctx, input }) => {
-			const { search, type, classId, classGroupId } = input;
-			
-			return ctx.prisma.classActivity.findMany({
-				where: {
-					...(classId && { classId }),
-					...(type && { type }),
-					...(classGroupId && { classGroupId }),
-					...(search && {
-						OR: [
-							{ title: { contains: search, mode: 'insensitive' } },
-							{ description: { contains: search, mode: 'insensitive' } },
-						],
-					}),
-				},
+			  const where: Prisma.ClassActivityWhereInput = {
+				...(input.classId && { classId: input.classId }),
+				...(input.type && { type: input.type }),
+				...(input.classGroupId && { classGroupId: input.classGroupId }),
+				...(input.search && {
+					OR: [
+						{ title: { contains: input.search, mode: 'insensitive' } },
+						{ description: { contains: input.search, mode: 'insensitive' } },
+					],
+				}),
+			};
+
+			const activities = await ctx.prisma.classActivity.findMany({
+				where,
 				include: {
-					configuration: true,
-					resources: true,
-					class: {
-						select: { name: true }
-					},
-					classGroup: {
-						select: { name: true }
-					},
+					class: { select: { name: true } },
+					classGroup: { select: { name: true } },
+					subject: { select: { name: true } },
 					submissions: {
 						select: {
 							id: true,
@@ -114,17 +133,19 @@ export const classActivityRouter = createTRPCRouter({
 							obtainedMarks: true,
 							totalMarks: true,
 							feedback: true,
-							student: {
-								select: {
-									id: true,
-									name: true
-								}
-							}
+							student: { select: { id: true, name: true } }
 						}
 					}
 				},
 				orderBy: { createdAt: 'desc' }
 			});
+
+
+			return activities.map(activity => ({
+				...activity,
+				configuration: activity.configuration as unknown as ActivityConfiguration,
+				resources: [] // Default to empty array since resources are stored as JSON
+			}));
 		}),
 
 
@@ -194,7 +215,7 @@ export const classActivityRouter = createTRPCRouter({
 			id: z.string(),
 			title: z.string(),
 			description: z.string().optional(),
-			type: z.enum(Object.values(ActivityTypes) as [ActivityType, ...ActivityType[]]),
+			type: z.nativeEnum(ActivityType),
 			classId: z.string(),
 			subjectId: z.string(),
 			deadline: z.date().optional(),
@@ -237,26 +258,30 @@ export const classActivityRouter = createTRPCRouter({
 		}))
 		.mutation(async ({ ctx, input }) => {
 			const activity = await ctx.prisma.classActivity.findUnique({
-				where: { id: input.activityId },
-				include: { configuration: true }
+				where: { id: input.activityId }
 			});
 
-			if (!activity?.configuration) {
+			if (!activity) {
+
 				throw new TRPCError({
 					code: 'NOT_FOUND',
 					message: 'Activity or configuration not found',
 				});
 			}
 
+			const config = activity.configuration as unknown as ActivityConfiguration;
+
 			return ctx.prisma.activitySubmission.create({
 				data: {
-					activity: { connect: { id: input.activityId } },
-					student: { connect: { id: input.studentId } },
+					activityId: input.activityId,
+					studentId: input.studentId,
 					status: input.status,
 					content: input.content,
 					submittedAt: new Date(),
-					totalMarks: activity.configuration.totalMarks,
-					gradingType: activity.configuration.gradingType
+					totalMarks: config.totalMarks,
+					obtainedMarks: 0,
+					isPassing: false,
+					gradingType: config.gradingType
 				}
 			});
 		}),
@@ -271,20 +296,20 @@ export const classActivityRouter = createTRPCRouter({
 			const submission = await ctx.prisma.activitySubmission.findUnique({
 				where: { id: input.submissionId },
 				include: {
-					activity: {
-						include: { configuration: true }
-					}
+					activity: true
 				}
 			});
 
-			if (!submission?.activity.configuration) {
+			if (!submission) {
 				throw new TRPCError({
 					code: 'NOT_FOUND',
-					message: 'Submission or activity configuration not found',
+					message: 'Submission not found',
 				});
 			}
 
-			const isPassing = input.obtainedMarks >= submission.activity.configuration.passingMarks;
+			const config = submission.activity.configuration as unknown as ActivityConfiguration;
+			const isPassing = input.obtainedMarks >= config.passingMarks;
+
 
 			return ctx.prisma.activitySubmission.update({
 				where: { id: input.submissionId },

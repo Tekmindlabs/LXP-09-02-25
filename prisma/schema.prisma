@@ -49,8 +49,8 @@ model User {
   submissions  ActivitySubmission[] @relation("StudentSubmissions")
 
   // Historical Data Relations
-  historicalRecords    HistoricalStudentRecord[] @relation("StudentHistory")
-  versionedRecords     VersionedRecord[]         @relation("UserVersions")
+  historicalRecords HistoricalStudentRecord[] @relation("StudentHistory")
+  versionedRecords  VersionedRecord[]         @relation("UserVersions")
 
   @@map("users")
 }
@@ -88,51 +88,51 @@ enum Visibility {
 }
 
 model AcademicYearSettings {
-    id          String      @id @default(cuid())
-    startMonth  Int
-    startDay    Int
-    endMonth    Int
-    endDay      Int
-    createdAt   DateTime    @default(now())
-    updatedAt   DateTime    @updatedAt
-    
-    @@map("academic_year_settings")
+  id         String   @id @default(cuid())
+  startMonth Int
+  startDay   Int
+  endMonth   Int
+  endDay     Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("academic_year_settings")
 }
 
 model AcademicYear {
-  id          String      @id @default(cuid())
-  name        String      @unique
-  startDate   DateTime
-  endDate     DateTime
-  status      Status      @default(ACTIVE)
-  calendars   Calendar[]
+  id             String                 @id @default(cuid())
+  name           String                 @unique
+  startDate      DateTime
+  endDate        DateTime
+  status         Status                 @default(ACTIVE)
+  calendars      Calendar[]
   termStructures ProgramTermStructure[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@map("academic_years")
 }
 
 // Academic Structure
 model Calendar {
-  id            String       @id @default(cuid())
-  name          String
-  description   String?
-  startDate     DateTime
-  endDate       DateTime
-  type          CalendarType @default(PRIMARY)
-  status        Status       @default(ACTIVE)
-  isDefault     Boolean      @default(false)
-  academicYear  AcademicYear? @relation(fields: [academicYearId], references: [id])
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  type           CalendarType  @default(PRIMARY)
+  status         Status        @default(ACTIVE)
+  isDefault      Boolean       @default(false)
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
   academicYearId String?
-  events        Event[]
-  programs      Program[]
-  terms         Term[]
-  classGroups   ClassGroup[]
-  visibility    Visibility   @default(ALL)
-  metadata      Json?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  events         Event[]
+  programs       Program[]
+  terms          Term[]
+  classGroups    ClassGroup[]
+  visibility     Visibility    @default(ALL)
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@unique([name, type])
   @@map("calendars")
@@ -160,19 +160,19 @@ model Event {
 }
 
 model CalendarEvent {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  startDate   DateTime
-  endDate     DateTime
-  level       String
-  calendarId  String
-  programId   String?
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  startDate    DateTime
+  endDate      DateTime
+  level        String
+  calendarId   String
+  programId    String?
   classGroupId String?
-  classId     String?
-  status      Status   @default(ACTIVE)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  classId      String?
+  status       Status   @default(ACTIVE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("calendar_events")
 }
@@ -225,61 +225,60 @@ model Week {
 }
 
 model Program {
-  id            String              @id @default(cuid())
-  name          String?             @unique
-  description   String?
-  status        Status              @default(ACTIVE)
-  coordinator   CoordinatorProfile? @relation(fields: [coordinatorId], references: [id])
-  coordinatorId String?
-  calendar      Calendar            @relation(fields: [calendarId], references: [id])
-  calendarId    String
-  classGroups   ClassGroup[]
+  id             String                 @id @default(cuid())
+  name           String?                @unique
+  description    String?
+  status         Status                 @default(ACTIVE)
+  coordinator    CoordinatorProfile?    @relation(fields: [coordinatorId], references: [id])
+  coordinatorId  String?
+  calendar       Calendar               @relation(fields: [calendarId], references: [id])
+  calendarId     String
+  classGroups    ClassGroup[]
   termStructures ProgramTermStructure[]
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@map("programs")
 }
 
 model ClassGroup {
-  id          String          @id @default(cuid())
-  name        String
-  description String?
-  program     Program         @relation(fields: [programId], references: [id], onDelete: Cascade)
-  programId   String
-  calendar    Calendar        @relation(fields: [calendarId], references: [id], onDelete: Restrict)
-  calendarId  String
-  classes     Class[]
-  subjects    Subject[]
-  timetables  Timetable[]
-  activities  ClassActivity[]
+  id           String                   @id @default(cuid())
+  name         String
+  description  String?
+  program      Program                  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  programId    String
+  calendar     Calendar                 @relation(fields: [calendarId], references: [id], onDelete: Restrict)
+  calendarId   String
+  classes      Class[]
+  subjects     Subject[]
+  timetables   Timetable[]
+  activities   ClassActivity[]
   termSettings ClassGroupTermSettings[]
-  status      Status          @default(ACTIVE)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  status       Status                   @default(ACTIVE)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
 
   @@unique([name, programId])
   @@map("class_groups")
 }
 
 model Subject {
-  id              String              @id @default(cuid())
-  name            String
-  code            String              @unique
-  description     String?
-  status          Status              @default(ACTIVE)
-  classGroups     ClassGroup[]
-  teachers        TeacherSubject[]
-  periods         Period[]
+  id                 String              @id @default(cuid())
+  name               String
+  code               String              @unique
+  description        String?
+  status             Status              @default(ACTIVE)
+  classGroups        ClassGroup[]
+  teachers           TeacherSubject[]
+  periods            Period[]
   teacherAssignments TeacherAssignment[]
-  activities      ClassActivity[]
-  progress        ProgressTracking[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  activities         ClassActivity[]
+  progress           ProgressTracking[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@map("subjects")
 }
-
 
 model TeacherAssignment {
   id             String   @id @default(cuid())
@@ -287,7 +286,7 @@ model TeacherAssignment {
   teacherId      String
   subject        Subject  @relation(fields: [subjectId], references: [id])
   subjectId      String
-  classId        String   // References the class this assignment belongs to
+  classId        String // References the class this assignment belongs to
   isClassTeacher Boolean  @default(false)
   assignedAt     DateTime @default(now())
 
@@ -300,7 +299,7 @@ model ProgressTracking {
   studentId String
   subject   Subject  @relation(fields: [subjectId], references: [id])
   subjectId String
-  progress  Json     // Stores progress data as JSON
+  progress  Json // Stores progress data as JSON
   updatedAt DateTime @updatedAt
 
   @@unique([studentId, subjectId])
@@ -316,7 +315,7 @@ model Class {
   teachers     TeacherClass[]
   activities   ClassActivity[]
   timetables   Timetable[]
-  attendance   Attendance[]     // Add this line
+  attendance   Attendance[] // Add this line
   status       Status           @default(ACTIVE)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
@@ -327,27 +326,26 @@ model Class {
 
 // Profile Models
 model StudentProfile {
-  id          String          @id @default(cuid())
-  user        User            @relation(fields: [userId], references: [id])
-  userId      String          @unique
+  id          String         @id @default(cuid())
+  user        User           @relation(fields: [userId], references: [id])
+  userId      String         @unique
   dateOfBirth DateTime?
-  class       Class?          @relation(fields: [classId], references: [id])
+  class       Class?         @relation(fields: [classId], references: [id])
   classId     String?
   attendance  Attendance[]
-  parent      ParentProfile?  @relation(fields: [parentId], references: [id])
+  parent      ParentProfile? @relation(fields: [parentId], references: [id])
   parentId    String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@map("student_profiles")
 }
-
 
 model TeacherProfile {
   id             String           @id @default(cuid())
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId         String           @unique
-  teacherType    TeacherType     @default(SUBJECT)
+  teacherType    TeacherType      @default(SUBJECT)
   specialization String?
   subjects       TeacherSubject[]
   classes        TeacherClass[]
@@ -416,7 +414,7 @@ model Attendance {
   id        String           @id @default(cuid())
   student   StudentProfile   @relation(fields: [studentId], references: [id])
   studentId String
-  class     Class           @relation(fields: [classId], references: [id])
+  class     Class            @relation(fields: [classId], references: [id])
   classId   String
   date      DateTime
   status    AttendanceStatus
@@ -431,86 +429,49 @@ model Attendance {
 
 // Activity & Assessment Models
 model ClassActivity {
-  id              String   @id @default(cuid())
-  title           String
-  description     String?
-  type            ActivityType
-  status          ActivityStatus
-  classId         String?
-  subjectId       String
-  classGroupId    String?
-  deadline        DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Configuration
-  configuration   ActivityConfiguration?
-  resources       ActivityResource[]
-  submissions     ActivitySubmission[]
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  type          String // ActivityType
+  status        String // ActivityStatus
+  classId       String?
+  subjectId     String
+  classGroupId  String?
+  deadline      DateTime?
+  configuration Json // Store configuration as JSON
+  resources     Json? // Store resources as JSON
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
-  class           Class?      @relation(fields: [classId], references: [id])
-  subject         Subject     @relation(fields: [subjectId], references: [id])
-  classGroup      ClassGroup? @relation(fields: [classGroupId], references: [id])
+  class       Class?               @relation(fields: [classId], references: [id])
+  subject     Subject              @relation(fields: [subjectId], references: [id])
+  classGroup  ClassGroup?          @relation(fields: [classGroupId], references: [id])
+  submissions ActivitySubmission[]
 
   @@index([classId])
   @@index([subjectId])
   @@index([classGroupId])
 }
 
-model ActivityConfiguration {
-  id               String             @id @default(cuid())
-  activityId       String             @unique
-  activityMode     ActivityMode
-  isGraded         Boolean            @default(true)
-  totalMarks       Int
-  passingMarks     Int
-  gradingType      ActivityGradingType
-  availabilityDate DateTime
-  deadline         DateTime
-  instructions     String?
-  timeLimit        Int?               // in minutes
-  attempts         Int?               // number of allowed attempts
-  viewType         ActivityViewType
-  autoGradingConfig Json?             // For online activities
-
-  // Relations
-  activity         ClassActivity      @relation(fields: [activityId], references: [id], onDelete: Cascade)
-}
-
-model ActivityResource {
-  id          String              @id @default(cuid())
-  title       String
-  type        ActivityResourceType
-  url         String
-  activityId  String
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  // Relations
-  activity    ClassActivity       @relation(fields: [activityId], references: [id], onDelete: Cascade)
-
-  @@index([activityId])
-}
-
 model ActivitySubmission {
-  id            String                  @id @default(cuid())
+  id            String    @id @default(cuid())
   activityId    String
   studentId     String
-  status        ActivitySubmissionStatus
-  submittedAt   DateTime               @default(now())
-  content       Json?                  // Submission content
+  status        String // PENDING, SUBMITTED, GRADED, LATE, MISSED
+  submittedAt   DateTime  @default(now())
+  content       Json? // Submission content
   obtainedMarks Float?
   totalMarks    Float?
   feedback      String?
-  isPassing     Boolean                @default(false)
-  gradingType   ActivityGradingType
+  isPassing     Boolean   @default(false)
+  gradingType   String // AUTOMATIC or MANUAL
   gradedBy      String?
   gradedAt      DateTime?
 
   // Relations
-  activity      ClassActivity          @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  student       User                   @relation("StudentSubmissions", fields: [studentId], references: [id])
+  activity ClassActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student  User          @relation("StudentSubmissions", fields: [studentId], references: [id])
 
   @@unique([activityId, studentId])
   @@index([activityId])
@@ -519,36 +480,35 @@ model ActivitySubmission {
 
 // Timetable & Classroom Models
 model Timetable {
-  id           String     @id @default(cuid())
-  term         Term       @relation(fields: [termId], references: [id])
+  id           String      @id @default(cuid())
+  term         Term        @relation(fields: [termId], references: [id])
   termId       String
-  classGroup   ClassGroup @relation(fields: [classGroupId], references: [id])
+  classGroup   ClassGroup  @relation(fields: [classGroupId], references: [id])
   classGroupId String
-  class        Class      @relation(fields: [classId], references: [id])
-  classId      String     @unique
+  class        Class       @relation(fields: [classId], references: [id])
+  classId      String      @unique
   periods      Period[]
   breakTimes   BreakTime[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
-
 model Period {
-  id               String          @id @default(cuid())
-  startTime        DateTime
-  endTime          DateTime
-  durationInMinutes Int           @default(45)
-  dayOfWeek        Int            // 1-7 representing Monday-Sunday
-  subject          Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  subjectId        String
-  classroom        Classroom      @relation(fields: [classroomId], references: [id], onDelete: Cascade)
-  classroomId      String
-  timetable        Timetable      @relation(fields: [timetableId], references: [id], onDelete: Cascade)
-  timetableId      String
-  teacher          TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  teacherId        String
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  startTime         DateTime
+  endTime           DateTime
+  durationInMinutes Int            @default(45)
+  dayOfWeek         Int // 1-7 representing Monday-Sunday
+  subject           Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subjectId         String
+  classroom         Classroom      @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  classroomId       String
+  timetable         Timetable      @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  timetableId       String
+  teacher           TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId         String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@unique([timetableId, dayOfWeek, startTime])
   @@unique([teacherId, dayOfWeek, startTime])
@@ -561,10 +521,10 @@ model Period {
 
 model BreakTime {
   id          String    @id @default(cuid())
-  startTime   String    // HH:mm format
-  endTime     String    // HH:mm format
-  type        String    // SHORT_BREAK or LUNCH_BREAK
-  dayOfWeek   Int       // 1-7 representing Monday-Sunday
+  startTime   String // HH:mm format
+  endTime     String // HH:mm format
+  type        String // SHORT_BREAK or LUNCH_BREAK
+  dayOfWeek   Int // 1-7 representing Monday-Sunday
   timetable   Timetable @relation(fields: [timetableId], references: [id], onDelete: Cascade)
   timetableId String
   createdAt   DateTime  @default(now())
@@ -721,17 +681,16 @@ model UserRole {
 }
 
 model Role {
-  id          String          @id @default(cuid())
-  name        String          @unique
+  id          String           @id @default(cuid())
+  name        String           @unique
   description String?
   userRoles   UserRole[]
   permissions RolePermission[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@map("roles")
 }
-
 
 model Permission {
   id          String           @id @default(cuid())
@@ -887,47 +846,47 @@ enum TeacherType {
 
 // Knowledge Base Models
 model KnowledgeBase {
-  id          String      @id @default(cuid())
+  id          String     @id @default(cuid())
   name        String
   description String?
   folders     Folder[]
   documents   Document[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@map("knowledge_bases")
 }
 
 model Folder {
-  id             String        @id @default(cuid())
-  name           String
-  description    String?
-  parentFolder   Folder?       @relation("FolderHierarchy", fields: [parentId], references: [id])
-  parentId       String?
-  subFolders     Folder[]      @relation("FolderHierarchy")
-  documents      Document[]
-  metadata       Json?
-  knowledgeBase  KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id])
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  parentFolder    Folder?       @relation("FolderHierarchy", fields: [parentId], references: [id])
+  parentId        String?
+  subFolders      Folder[]      @relation("FolderHierarchy")
+  documents       Document[]
+  metadata        Json?
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id])
   knowledgeBaseId String
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@map("folders")
 }
 
 model Document {
-  id             String        @id @default(cuid())
-  title          String
-  type           String
-  content        String        @db.Text
-  embeddings     Float[]
-  metadata       Json?
-  folder         Folder        @relation(fields: [folderId], references: [id])
-  folderId       String
-  knowledgeBase  KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id])
+  id              String        @id @default(cuid())
+  title           String
+  type            String
+  content         String        @db.Text
+  embeddings      Float[]
+  metadata        Json?
+  folder          Folder        @relation(fields: [folderId], references: [id])
+  folderId        String
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id])
   knowledgeBaseId String
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@map("documents")
 }
@@ -937,61 +896,61 @@ model HistoricalStudentRecord {
   studentId    String
   academicYear String
   term         String
-  grades       Json     // Array of GradeRecord objects
-  attendance   Json     // Array of AttendanceRecord objects
+  grades       Json // Array of GradeRecord objects
+  attendance   Json // Array of AttendanceRecord objects
   timestamp    DateTime
   student      User     @relation("StudentHistory", fields: [studentId], references: [id], onDelete: Cascade)
-  
+
   @@index([studentId, timestamp])
   @@map("historical_student_records")
 }
 
 model VersionedRecord {
-  id          String   @id @default(cuid())
-  entityId    String
-  entityType  String
-  changes     Json
-  timestamp   DateTime
-  userId      String
-  user        User     @relation("UserVersions", fields: [userId], references: [id], onDelete: Cascade)
-  
+  id         String   @id @default(cuid())
+  entityId   String
+  entityType String
+  changes    Json
+  timestamp  DateTime
+  userId     String
+  user       User     @relation("UserVersions", fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([entityId, entityType, timestamp])
   @@map("versioned_records")
 }
 
 model DataRetentionPolicy {
-  id                    String     @id @default(cuid())
-  entityType            String     @unique
-  retentionPeriod       Int
-  archivalStrategy      String     // 'DELETE' or 'ARCHIVE'
+  id                     String   @id @default(cuid())
+  entityType             String   @unique
+  retentionPeriod        Int
+  archivalStrategy       String // 'DELETE' or 'ARCHIVE'
   complianceRequirements String[]
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
-  
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
   @@map("data_retention_policies")
 }
 
 model SystemSettings {
-  id                Int      @id @default(1)
-  mfaEnabled        Boolean  @default(false)
-  emailNotifications Boolean @default(true)
-  autoBackup        Boolean  @default(false)
-  maintenanceMode   Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 Int      @id @default(1)
+  mfaEnabled         Boolean  @default(false)
+  emailNotifications Boolean  @default(true)
+  autoBackup         Boolean  @default(false)
+  maintenanceMode    Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@map("system_settings")
 }
 
 model InstituteSettings {
   id                Int      @id @default(1)
-  name             String
-  address          String
-  phone            String
-  email            String
-  website          String?
-  logo             String?
-  timezone         String   @default("UTC")
+  name              String
+  address           String
+  phone             String
+  email             String
+  website           String?
+  logo              String?
+  timezone          String   @default("UTC")
   academicYearStart DateTime
   academicYearEnd   DateTime
   createdAt         DateTime @default(now())
@@ -1001,15 +960,15 @@ model InstituteSettings {
 }
 
 model BrandingSettings {
-  id                Int      @id @default(1)
-  logo             String?
-  primaryColor     String   @default("#000000")
-  secondaryColor   String   @default("#ffffff")
-  accentColor      String   @default("#0000ff")
-  fontFamily       String   @default("Inter")
-  customCss        String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             Int      @id @default(1)
+  logo           String?
+  primaryColor   String   @default("#000000")
+  secondaryColor String   @default("#ffffff")
+  accentColor    String   @default("#0000ff")
+  fontFamily     String   @default("Inter")
+  customCss      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("branding_settings")
 }
@@ -1029,60 +988,59 @@ model BrandKit {
 
 // Term Management Models
 model ProgramTermStructure {
-  id                String                   @id @default(uuid())
-  programId         String
-  program           Program                  @relation(fields: [programId], references: [id])
-  academicYearId    String
-  academicYear      AcademicYear            @relation(fields: [academicYearId], references: [id])
-  academicTerms     AcademicTerm[]
+  id                 String                   @id @default(uuid())
+  programId          String
+  program            Program                  @relation(fields: [programId], references: [id])
+  academicYearId     String
+  academicYear       AcademicYear             @relation(fields: [academicYearId], references: [id])
+  academicTerms      AcademicTerm[]
   classGroupSettings ClassGroupTermSettings[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   @@map("program_term_structures")
 }
 
 model AcademicTerm {
-  id                String             @id @default(uuid())
+  id                String                 @id @default(uuid())
   name              String
   startDate         DateTime
   endDate           DateTime
   type              String
   programTermId     String
-  programTerm       ProgramTermStructure @relation(fields: [programTermId], references: [id])
-  calendarTerm      Term?              @relation(fields: [calendarTermId], references: [id])
+  programTerm       ProgramTermStructure   @relation(fields: [programTermId], references: [id])
+  calendarTerm      Term?                  @relation(fields: [calendarTermId], references: [id])
   calendarTermId    String?
   assessmentPeriods TermAssessmentPeriod[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
   @@map("academic_terms")
 }
 
 model TermAssessmentPeriod {
-  id        String   @id @default(uuid())
+  id        String       @id @default(uuid())
   name      String
   startDate DateTime
   endDate   DateTime
   weight    Float
   termId    String
   term      AcademicTerm @relation(fields: [termId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   @@map("term_assessment_periods")
 }
 
 model ClassGroupTermSettings {
-  id            String      @id @default(uuid())
-  classGroupId  String
-  programTermId String
+  id             String               @id @default(uuid())
+  classGroupId   String
+  programTermId  String
   customSettings Json?
-  classGroup    ClassGroup  @relation(fields: [classGroupId], references: [id])
-  programTerm   ProgramTermStructure @relation(fields: [programTermId], references: [id])
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  classGroup     ClassGroup           @relation(fields: [classGroupId], references: [id])
+  programTerm    ProgramTermStructure @relation(fields: [programTermId], references: [id])
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   @@map("class_group_term_settings")
 }
-
