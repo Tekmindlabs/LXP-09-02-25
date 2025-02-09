@@ -126,13 +126,13 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 							});
 						},
 						onError: (error) => {
-							console.error('Error updating period:', error);
 							toast({
-								title: "Error",
-								description: "Failed to update period",
+								title: "Scheduling Conflict",
+								description: error.message,
 								variant: "destructive"
 							});
 						}
+
 					}
 				);
 			} else {
@@ -152,13 +152,13 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 							});
 						},
 						onError: (error) => {
-							console.error('Error creating period:', error);
 							toast({
-								title: "Error",
-								description: "Failed to create period",
+								title: "Scheduling Conflict",
+								description: error.message,
 								variant: "destructive"
 							});
 						}
+
 					}
 				);
 			}
