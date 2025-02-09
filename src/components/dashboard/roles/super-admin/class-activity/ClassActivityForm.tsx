@@ -1,122 +1,97 @@
 'use client';
 
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ResourceType } from "@prisma/client";
-import { api } from "@/utils/api";
-import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { FileUpload } from "@/components/ui/file-upload";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
+import { ResourcesSection } from "./ResourcesSection";
+import { api } from "@/utils/api";
+import { ActivityType, ActivityMode, ActivityGradingType, ActivityViewType } from "@prisma/client";
+import { useEffect } from "react";
 
 
-// Define activity types as a const enum
-const ActivityTypes = {
-	QUIZ_MULTIPLE_CHOICE: 'QUIZ_MULTIPLE_CHOICE',
-	QUIZ_DRAG_DROP: 'QUIZ_DRAG_DROP',
-	QUIZ_FILL_BLANKS: 'QUIZ_FILL_BLANKS',
-	QUIZ_MEMORY: 'QUIZ_MEMORY',
-	QUIZ_TRUE_FALSE: 'QUIZ_TRUE_FALSE',
-	GAME_WORD_SEARCH: 'GAME_WORD_SEARCH',
-	GAME_CROSSWORD: 'GAME_CROSSWORD',
-	GAME_FLASHCARDS: 'GAME_FLASHCARDS',
-	VIDEO_YOUTUBE: 'VIDEO_YOUTUBE',
-	READING: 'READING',
-	CLASS_ASSIGNMENT: 'CLASS_ASSIGNMENT',
-	CLASS_PROJECT: 'CLASS_PROJECT',
-	CLASS_PRESENTATION: 'CLASS_PRESENTATION',
-	CLASS_TEST: 'CLASS_TEST',
-	CLASS_EXAM: 'CLASS_EXAM'
-} as const;
 
-type ActivityType = typeof ActivityTypes[keyof typeof ActivityTypes];
+const formSchema = z.object({
+	title: z.string().min(1, "Title is required"),
+	description: z.string().optional(),
+	classId: z.string().optional(),
+	subjectId: z.string().min(1, "Subject is required"),
+	type: z.nativeEnum(ActivityType),
+	configuration: z.object({
+		activityMode: z.nativeEnum(ActivityMode),
+		isGraded: z.boolean(),
+		totalMarks: z.number().min(1, "Total marks must be greater than 0"),
+		passingMarks: z.number().min(1, "Passing marks must be greater than 0"),
+		gradingType: z.nativeEnum(ActivityGradingType),
+		availabilityDate: z.date(),
+		deadline: z.date(),
+		instructions: z.string().optional(),
+		timeLimit: z.number().optional(),
+		attempts: z.number().optional(),
+		viewType: z.nativeEnum(ActivityViewType),
+		autoGradingConfig: z.object({
+			scorePerQuestion: z.number(),
+			penaltyPerWrongAnswer: z.number(),
+			allowPartialCredit: z.boolean()
+		}).optional(),
+	}),
+	resources: z.array(z.object({
+		title: z.string(),
+		type: z.string(),
+		url: z.string(),
+		fileInfo: z.object({
+			size: z.number(),
+			createdAt: z.date(),
+			updatedAt: z.date(),
+			mimeType: z.string(),
+			publicUrl: z.string()
+		}).optional()
+	})).optional(),
+});
 
-interface Resource {
-	title: string;
-	type: ResourceType;
-	url: string;
-	fileInfo?: {
-		size: number;
-		createdAt: Date;
-		updatedAt: Date;
-		mimeType: string;
-		publicUrl: string;
-	};
-}
+type FormData = z.infer<typeof formSchema>;
 
 interface Props {
-	activityId?: string | null;
+	activityId?: string;
 	onClose: () => void;
 }
 
 export default function ClassActivityForm({ activityId, onClose }: Props) {
 	const { toast } = useToast();
 	const utils = api.useContext();
-	const { data: classGroups } = api.classGroup.getAllClassGroups.useQuery();
-	const { data: classes } = api.class.searchClasses.useQuery({});
-	const { data: subjects } = api.subject.getAll.useQuery();
-	const formSchema = z.object({
-		title: z.string().min(1, "Title is required"),
-		description: z.string().optional(),
-		type: z.enum(Object.values(ActivityTypes) as [ActivityType, ...ActivityType[]]),
-		classId: z.string(),
-		subjectId: z.string(),
-		classGroupId: z.string().optional(),
-		deadline: z.string().optional(),
-		gradingCriteria: z.string().optional(),
-		configuration: z.object({
-			totalMarks: z.number().min(1, "Total marks must be greater than 0"),
-			passingMarks: z.number().min(1, "Passing marks must be greater than 0"),
-			activityMode: z.enum(['ONLINE', 'IN_CLASS']),
-			gradingType: z.enum(['AUTOMATIC', 'MANUAL']),
-			isGraded: z.boolean(),
-			timeLimit: z.number().optional(),
-			attempts: z.number().optional(),
-		}),
-		resources: z.array(z.object({
-			title: z.string(),
-			type: z.nativeEnum(ResourceType),
-			url: z.string(),
-			fileInfo: z.object({
-				size: z.number(),
-				createdAt: z.date(),
-				updatedAt: z.date(),
-				mimeType: z.string(),
-				publicUrl: z.string()
-			}).optional()
-		})).optional(),
-	});
+	const { data: classes } = api.class.getAll.useQuery();
+	const { data: subjects } = api.subject.getByClass.useQuery(
+		{ classId: form.watch('classId') || "" },
+		{ enabled: !!form.watch('classId') }
+	);
 
-	type FormData = z.infer<typeof formSchema>;
+
 
 	const form = useForm<FormData>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
 			title: "",
 			description: "",
-			type: ActivityTypes.CLASS_ASSIGNMENT,
-			gradingCriteria: "",
-			classId: "",
-			subjectId: "",
-			classGroupId: "",
+			type: ActivityType.CLASS_ASSIGNMENT,
 			configuration: {
+				activityMode: ActivityMode.IN_CLASS,
+				isGraded: true,
 				totalMarks: 100,
 				passingMarks: 40,
-				activityMode: 'IN_CLASS',
-				gradingType: 'MANUAL',
-				isGraded: true,
-				timeLimit: undefined,
-				attempts: undefined,
+				gradingType: ActivityGradingType.MANUAL,
+				availabilityDate: new Date(),
+				deadline: new Date(),
+				viewType: ActivityViewType.STUDENT,
 			},
-			resources: []
+			resources: [],
 		},
 	});
+
 
 
 	const { data: activity } = api.classActivity.getById.useQuery(activityId as string, {
@@ -224,10 +199,9 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 	};
 
 	return (
-		<DialogContent className="max-w-3xl">
-			<DialogHeader>
-				<DialogTitle>{activityId ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
-			</DialogHeader>
+		<div className="max-w-3xl mx-auto p-6">
+			<h2 className="text-2xl font-bold mb-6">{activityId ? 'Edit Activity' : 'Create New Activity'}</h2>
+
 			<Form {...form}>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 				<FormField
