@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { startOfWeek, endOfWeek } from "date-fns";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 export const classroomRouter = createTRPCRouter({
@@ -85,13 +86,23 @@ export const classroomRouter = createTRPCRouter({
 			z.object({
 				classroomId: z.string(),
 				date: z.date(),
+				viewMode: z.enum(['daily', 'weekly']).optional(),
 			})
 		)
 		.query(async ({ ctx, input }) => {
+			const startDate = input.viewMode === 'weekly' ? 
+				startOfWeek(input.date) : 
+				input.date;
+			const endDate = input.viewMode === 'weekly' ? 
+				endOfWeek(input.date) : 
+				input.date;
+
 			const periods = await ctx.prisma.period.findMany({
 				where: {
 					classroomId: input.classroomId,
-					dayOfWeek: input.date.getDay() || 7, // Convert Sunday (0) to 7
+					dayOfWeek: input.viewMode === 'weekly' 
+						? { in: [1, 2, 3, 4, 5, 6, 7] }
+						: input.date.getDay() || 7,
 				},
 				include: {
 					subject: true,
@@ -102,9 +113,10 @@ export const classroomRouter = createTRPCRouter({
 						},
 					},
 				},
-				orderBy: {
-					startTime: 'asc',
-				},
+				orderBy: [
+					{ dayOfWeek: 'asc' },
+					{ startTime: 'asc' },
+				],
 			});
 
 			return periods;

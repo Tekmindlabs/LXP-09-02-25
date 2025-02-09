@@ -26,6 +26,35 @@ export interface TimetablePeriod {
 	teacherId: string;
 }
 
+export interface ClassroomSchedule {
+    id: string;
+    startTime: Date;
+    endTime: Date;
+    dayOfWeek: number;
+    subject: {
+        id: string;
+        name: string;
+    };
+    timetable: {
+        id: string;
+        class?: {
+            id: string;
+            name: string;
+        };
+        classGroup?: {
+            id: string;
+            name: string;
+        };
+    };
+}
+
+export interface ClassroomAvailability {
+    date: Date;
+    periods: ClassroomSchedule[];
+}
+
 export type CalendarViewMode = 'day' | 'week' | 'month';
+
+export type ClassroomViewMode = 'daily' | 'weekly';
 
 export type EntityType = 'class' | 'class_group' | 'timetable';

@@ -1,33 +1,22 @@
 "use client";
 
-import { type FC, useState } from "react";
-import { api } from "@/trpc/react";
+import { type FC } from "react";
+import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
-import { type RouterOutputs } from "@/trpc/react";
-import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-type Classroom = RouterOutputs["classroom"]["getById"];
-type Period = RouterOutputs["classroom"]["getAvailability"][number];
+import { ScheduleView } from "@/components/dashboard/roles/super-admin/timetable/ScheduleView";
+import { LuUsers, LuBookOpen } from "react-icons/lu";
 
 interface ClassroomViewProps {
 	classroomId: string;
-	onEdit: () => void;
 }
 
-const ClassroomView: FC<ClassroomViewProps> = ({ classroomId, onEdit }) => {
-
-	const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-	
+const ClassroomView: FC<ClassroomViewProps> = ({ classroomId }) => {
 	const { data: classroom, isLoading: classroomLoading } = api.classroom.getById.useQuery(classroomId);
-	const { data: availability, isLoading: availabilityLoading } = api.classroom.getAvailability.useQuery({
-		classroomId,
-		date: selectedDate,
-	});
+	const { data: terms } = api.term.getAll.useQuery();
+	const termData = terms?.find(term => term.status === "ACTIVE"); // Get the first active term
 
-	if (classroomLoading || availabilityLoading) {
+	if (classroomLoading) {
 		return <div>Loading...</div>;
 	}
 
@@ -35,98 +24,71 @@ const ClassroomView: FC<ClassroomViewProps> = ({ classroomId, onEdit }) => {
 		return <div>Classroom not found</div>;
 	}
 
-	return (
-		<DialogContent className="max-w-4xl">
-			<DialogHeader>
-				<div className="flex items-center justify-between">
-					<DialogTitle className="text-2xl font-bold">{classroom?.name}</DialogTitle>
-					<Button onClick={onEdit}>
-						Edit Classroom
-					</Button>
+	const renderResources = () => {
+		try {
+			const resources = JSON.parse(classroom.resources || "{}");
+			return Object.entries(resources).map(([category, items]) => (
+				<div key={category} className="space-y-2">
+					<h4 className="font-semibold capitalize">{category}</h4>
+					<ul className="list-disc list-inside">
+						{Array.isArray(items) && items.map((item: string, index: number) => (
+							<li key={index}>{item}</li>
+						))}
+					</ul>
 				</div>
-			</DialogHeader>
+			));
+		} catch {
+			return <p>{classroom.resources}</p>;
+		}
+	};
+
+	return (
+		<div className="space-y-6">
+			<div className="flex items-center justify-between">
+				<h2 className="text-3xl font-bold tracking-tight">{classroom.name}</h2>
+				<Button variant="outline">Edit Classroom</Button>
+			</div>
 
 			<div className="grid gap-4 md:grid-cols-2">
-
 				<Card>
 					<CardHeader>
-						<CardTitle>Classroom Details</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="space-y-2">
-							<p>
-								<span className="font-semibold">Capacity:</span> {classroom.capacity}
-							</p>
-							{classroom.resources && (
-								<div>
-									<span className="font-semibold">Resources:</span>
-									<ul className="list-disc list-inside">
-										{(() => {
-											try {
-												const resources = JSON.parse(classroom.resources);
-												return Array.isArray(resources)
-													? resources.map((resource: string, index: number) => (
-															<li key={index}>{resource}</li>
-													))
-													: <li>{classroom.resources}</li>;
-											} catch (e) {
-												return <li>{classroom.resources}</li>;
-											}
-										})()}
-									</ul>
-								</div>
-							)}
-						</div>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader>
-						<CardTitle>Schedule</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<Calendar
-							mode="single"
-							selected={selectedDate}
-							onSelect={(date) => date && setSelectedDate(date)}
-							className="mb-4"
-						/>
-					</CardContent>
-				</Card>
-
-				<Card className="md:col-span-2">
-					<CardHeader>
-						<CardTitle>
-							Availability for {format(selectedDate, "EEEE, MMMM d, yyyy")}
+						<CardTitle className="flex items-center gap-2">
+							<LuUsers className="h-5 w-5" />
+							Capacity
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						{availability && availability.length > 0 ? (
-							<div className="space-y-2">
-								{availability.map((period: Period) => (
-									<Card key={period.id} className="p-4">
-										<div className="flex justify-between items-center">
-											<div>
-												<p className="font-semibold">
-													{format(new Date(period.startTime), "HH:mm")} -{" "}
-													{format(new Date(period.endTime), "HH:mm")}
-												</p>
-												<p>{period.subject.name}</p>
-												<p className="text-sm text-muted-foreground">
-													{period.timetable.classGroup?.name || period.timetable.class?.name}
-												</p>
-											</div>
-										</div>
-									</Card>
-								))}
-							</div>
-						) : (
-							<p className="text-muted-foreground">No classes scheduled for this day</p>
-						)}
+						<p className="text-2xl font-bold">{classroom.capacity}</p>
+						<p className="text-sm text-muted-foreground">Maximum students</p>
+					</CardContent>
+				</Card>
+
+				<Card>
+					<CardHeader>
+						<CardTitle className="flex items-center gap-2">
+							<LuBookOpen className="h-5 w-5" />
+							Resources
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						{renderResources()}
 					</CardContent>
 				</Card>
 			</div>
-		</DialogContent>
+
+			<Card>
+				<CardContent className="pt-6">
+					{termData && (
+						<ScheduleView
+							type="classroom"
+							entityId={classroomId}
+							termId={termData.id}
+						/>
+					)}
+				</CardContent>
+			</Card>
+		</div>
+
 	);
 };
 

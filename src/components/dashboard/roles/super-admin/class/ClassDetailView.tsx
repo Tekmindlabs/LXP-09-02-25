@@ -16,7 +16,7 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { type DateRange } from "react-day-picker";
 import { LuUsers, LuBookOpen, LuGraduationCap, LuUserCheck } from "react-icons/lu";
 import { Calendar } from "@/components/ui/calendar";
-import { format, addDays, isSameDay } from "date-fns";
+import { format, addDays, isSameDay, startOfWeek, endOfWeek } from "date-fns";
 import { CalendarIcon } from "@radix-ui/react-icons";
 
 type ClassDetails = {
@@ -98,6 +98,7 @@ export const ClassDetailsView = ({ isOpen, onClose, classId }: ClassDetailViewPr
 	const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 	const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 	const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date>(new Date());
+	const [scheduleViewMode, setScheduleViewMode] = useState<'daily' | 'weekly'>('daily');
 	const [dateRange, setDateRange] = useState<DateRange>({
 		from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
 		to: new Date()
@@ -238,10 +239,11 @@ export const ClassDetailsView = ({ isOpen, onClose, classId }: ClassDetailViewPr
 					</Card>
 				</div>
 				<Tabs defaultValue="overview">
-					<TabsList className="grid w-full grid-cols-5">
+					<TabsList className="grid w-full grid-cols-6">
 						<TabsTrigger value="overview">Overview</TabsTrigger>
 						<TabsTrigger value="students">Students</TabsTrigger>
 						<TabsTrigger value="teachers">Teachers</TabsTrigger>
+						<TabsTrigger value="schedule">Schedule</TabsTrigger>
 						<TabsTrigger value="calendar">Calendar</TabsTrigger>
 						<TabsTrigger value="analytics">Analytics</TabsTrigger>
 					</TabsList>
@@ -315,6 +317,77 @@ export const ClassDetailsView = ({ isOpen, onClose, classId }: ClassDetailViewPr
 
 
 
+
+					<TabsContent value="schedule">
+						<Card>
+							<CardHeader>
+								<CardTitle className="flex justify-between items-center">
+									<span>Class Schedule</span>
+									<Button
+										variant="outline"
+										onClick={() => setScheduleViewMode(scheduleViewMode === 'daily' ? 'weekly' : 'daily')}
+									>
+										{scheduleViewMode === 'daily' ? 'Show Weekly' : 'Show Daily'}
+									</Button>
+								</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div>
+										<Calendar
+											mode="single"
+											selected={selectedDate}
+											onSelect={(date) => date && setSelectedDate(date)}
+											className="rounded-md border"
+										/>
+									</div>
+									<div>
+										<h3 className="font-medium mb-4">
+											{scheduleViewMode === 'daily' 
+												? `Schedule for ${format(selectedDate, "EEEE, MMMM d, yyyy")}`
+												: `Weekly Schedule (${format(selectedDate, "MMMM d")} - ${format(endOfWeek(selectedDate), "MMMM d, yyyy")})`
+											}
+										</h3>
+										<div className="space-y-4">
+											{classDetails.timetables[0]?.periods
+												.filter(period => 
+													scheduleViewMode === 'weekly' || 
+													period.dayOfWeek === selectedDate.getDay().toString()
+												)
+												.map((period: Period, index: number) => (
+													<Card key={index} className="p-4">
+														<div className="flex justify-between items-center">
+															<div>
+																<p className="font-semibold">
+																	{scheduleViewMode === 'weekly' && (
+																		<span className="mr-2">
+																			{format(addDays(startOfWeek(selectedDate), parseInt(period.dayOfWeek)), "EEEE")}:
+																		</span>
+																	)}
+																	{period.startTime} - {period.endTime}
+																</p>
+															</div>
+														</div>
+													</Card>
+												))}
+											{(!classDetails.timetables[0]?.periods.length || 
+												(scheduleViewMode === 'daily' && 
+												!classDetails.timetables[0]?.periods.some(p => 
+													p.dayOfWeek === selectedDate.getDay().toString()
+												))) && (
+												<p className="text-muted-foreground text-center py-4">
+													{scheduleViewMode === 'daily' 
+														? 'No classes scheduled for this day'
+														: 'No classes scheduled for this week'
+													}
+												</p>
+											)}
+										</div>
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+					</TabsContent>
 
 					<TabsContent value="teachers">
 						<Card>

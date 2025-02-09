@@ -1,22 +1,22 @@
 "use client";
 
 import { type FC, useState } from "react";
-import { api } from "@/trpc/react";
+import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 import ClassroomForm from "./ClassroomForm";
-import ClassroomView from "./ClassroomView";
 import { type RouterOutputs } from "@/utils/api";
 
 type Classroom = RouterOutputs["classroom"]["getAll"][number];
 
 const ClassroomManagement: FC = () => {
+	const router = useRouter();
 	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [selectedClassroomId, setSelectedClassroomId] = useState<string | null>(null);
-	const [viewClassroomId, setViewClassroomId] = useState<string | null>(null);
 
 	const { data: classrooms, isLoading } = api.classroom.getAll.useQuery();
+
 
 	const handleEdit = (id: string) => {
 		setSelectedClassroomId(id);
@@ -31,6 +31,10 @@ const ClassroomManagement: FC = () => {
 	const handleCloseForm = () => {
 		setIsFormOpen(false);
 		setSelectedClassroomId(null);
+	};
+
+	const handleViewClassroom = (id: string) => {
+		router.push(`/dashboard/super-admin/classroom/${id}`);
 	};
 
 	if (isLoading) {
@@ -54,7 +58,7 @@ const ClassroomManagement: FC = () => {
 							<Card 
 								key={classroom.id} 
 								className="cursor-pointer hover:bg-accent"
-								onClick={() => setViewClassroomId(classroom.id)}
+								onClick={() => handleViewClassroom(classroom.id)}
 							>
 								<CardContent className="p-4">
 									<div className="flex justify-between items-start">
@@ -101,19 +105,8 @@ const ClassroomManagement: FC = () => {
 				onClose={handleCloseForm}
 				classroomId={selectedClassroomId}
 			/>
-
-			{viewClassroomId && (
-				<Dialog open={!!viewClassroomId} onOpenChange={() => setViewClassroomId(null)}>
-					<ClassroomView 
-						classroomId={viewClassroomId}
-						onEdit={() => {
-							setViewClassroomId(null);
-							handleEdit(viewClassroomId);
-						}}
-					/>
-				</Dialog>
-			)}
 		</div>
+
 	);
 };
 
