@@ -17,7 +17,9 @@ interface TimetableParams {
 export async function seedTimetables(prisma: PrismaClient, params: TimetableParams) {
 	console.log('Creating timetables and periods...');
 
-	// Get teachers for assignments
+	// Delete all existing timetables first to ensure clean state
+	await prisma.timetable.deleteMany();
+
 	const teachers = await prisma.teacherProfile.findMany({
 		include: {
 			user: true,
@@ -29,47 +31,36 @@ export async function seedTimetables(prisma: PrismaClient, params: TimetablePara
 		throw new Error("No teachers found in the database");
 	}
 
-	// Get first term
-	const terms = await prisma.term.findMany({
+	// Get active term
+	const activeTerm = await prisma.term.findFirst({
 		where: {
-			name: {
-				in: ['Fall Semester 2024', 'Spring Semester 2025']
-			}
+			name: 'Fall Semester 2024',
+			status: 'ACTIVE'
 		}
 	});
 
-	if (terms.length === 0) {
-		throw new Error("Terms not found");
+	if (!activeTerm) {
+		throw new Error("Active term not found");
 	}
 
-	const timetables = [];
-	
-	// Create timetables for each term and class
-	for (const term of terms) {
-		const termTimetables = await Promise.all(
-			params.classes.map(async (class_) => {
-				const classGroup = params.classGroups.find(cg => cg.id === class_.classGroupId);
-				if (!classGroup) return null;
+	// Create one timetable per class
+	const timetables = await Promise.all(
+		params.classes.map(async (class_) => {
+			const classGroup = params.classGroups.find(cg => cg.id === class_.classGroupId);
+			if (!classGroup) return null;
 
-				return prisma.timetable.upsert({
-					where: {
-						termId_classGroupId_classId: {
-							termId: term.id,
-							classGroupId: classGroup.id,
-							classId: class_.id
-						}
-					},
-					update: {},
-					create: {
-						termId: term.id,
-						classGroupId: classGroup.id,
-						classId: class_.id
-					}
-				});
-			})
-		);
-		timetables.push(...termTimetables.filter((t): t is NonNullable<typeof t> => t !== null));
-	}
+			return prisma.timetable.create({
+				data: {
+					termId: activeTerm.id,
+					classGroupId: classGroup.id,
+					classId: class_.id
+				}
+			});
+		})
+	);
+
+
+	const validTimetables = timetables.filter((t): t is NonNullable<typeof t> => t !== null);
 
 	// Create periods for each timetable
 	console.log('Creating periods...');
@@ -83,7 +74,7 @@ export async function seedTimetables(prisma: PrismaClient, params: TimetablePara
 		{ start: '15:00', end: '16:00' }
 	];
 
-	for (const timetable of timetables) {
+	for (const timetable of validTimetables) {
 		if (!timetable) continue; // Add null check
 		// Create periods for Monday to Friday (1-5)
 		for (let dayOfWeek = 1; dayOfWeek <= 5; dayOfWeek++) {
@@ -135,7 +126,7 @@ export async function seedTimetables(prisma: PrismaClient, params: TimetablePara
 
 	// Add break times
 	console.log('Creating break times...');
-	for (const timetable of timetables) {
+	for (const timetable of validTimetables) {
 		if (!timetable) continue;
 
 		for (let dayOfWeek = 1; dayOfWeek <= 5; dayOfWeek++) {

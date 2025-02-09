@@ -153,9 +153,34 @@ export const timetableRouter = createTRPCRouter({
 		.input(timetableInputSchema)
 		.mutation(async ({ ctx, input }) => {
 			try {
+				// Check if timetable already exists for the class/classGroup in this term
+				const existingTimetable = await ctx.prisma.timetable.findFirst({
+					where: {
+						AND: [
+							{
+								OR: [
+									{ classId: input.classId },
+									{ classGroupId: input.classGroupId }
+								]
+							},
+							{ termId: input.termId }
+						]
+					}
+				});
+
+				if (existingTimetable) {
+					throw new TRPCError({
+						code: 'CONFLICT',
+						message: 'A timetable already exists for this class in the selected term'
+					});
+				}
+
 				const timetableService = new TimetableService(ctx.prisma);
 				return timetableService.createTimetable(input);
 			} catch (error) {
+				if (error instanceof TRPCError) {
+					throw error;
+				}
 				throw new TRPCError({
 					code: 'INTERNAL_SERVER_ERROR',
 					message: 'Failed to create timetable',
@@ -261,10 +286,16 @@ export const timetableRouter = createTRPCRouter({
 					include: {
 						subject: true,
 						classroom: true,
+						teacher: {
+							include: {
+								user: true
+							}
+						}
 					},
 				},
 				classGroup: true,
 				class: true,
+				breakTimes: true
 			},
 		});
 	}),
@@ -279,10 +310,16 @@ export const timetableRouter = createTRPCRouter({
 						include: {
 							subject: true,
 							classroom: true,
+							teacher: {
+								include: {
+									user: true
+								}
+							}
 						},
 					},
 					classGroup: true,
 					class: true,
+					breakTimes: true
 				},
 			});
 		}),

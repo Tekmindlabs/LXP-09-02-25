@@ -26,14 +26,16 @@ export function TimetableForm() {
 		defaultValues: {
 			startTime: "08:00",
 			endTime: "15:00",
-			breakTimes: [
-				{ startTime: "10:30", endTime: "10:45", type: "SHORT_BREAK", dayOfWeek: 1 },
-				{ startTime: "12:30", endTime: "13:15", type: "LUNCH_BREAK", dayOfWeek: 1 }
-			],
-			periods: []
+			breakTimes: DAYS.map((_, index) => [
+				{ startTime: "10:30", endTime: "10:45", type: "SHORT_BREAK" as const, dayOfWeek: index + 1 },
+				{ startTime: "12:30", endTime: "13:15", type: "LUNCH_BREAK" as const, dayOfWeek: index + 1 }
+			]).flat(),
+			periods: [],
+			academicCalendarId: ""
 		}
 	});
 
+	const { data: academicCalendars } = api.academicCalendar.getAllCalendars.useQuery();
 	const { data: terms } = api.term.getAll.useQuery();
 	const { data: classGroups } = api.classGroup.list.useQuery();
 	const { data: classes } = api.class.search.useQuery(
@@ -114,18 +116,8 @@ export function TimetableForm() {
 		}
 	});
 
-	const addBreakTime = () => {
-		const currentBreakTimes = form.getValues("breakTimes") || [];
-		form.setValue("breakTimes", [
-			...currentBreakTimes,
-			{ startTime: "", endTime: "", type: "SHORT_BREAK", dayOfWeek: 1 }
-		]);
-	};
 
-	const removeBreakTime = (index: number) => {
-		const currentBreakTimes = form.getValues("breakTimes") || [];
-		form.setValue("breakTimes", currentBreakTimes.filter((_, i) => i !== index));
-	};
+
 
 	return (
 		<Form {...form}>
@@ -133,6 +125,29 @@ export function TimetableForm() {
 				<Card>
 					<CardContent className="pt-6">
 						<div className="grid grid-cols-1 gap-4">
+							<FormField
+								control={form.control}
+								name="academicCalendarId"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Academic Calendar</FormLabel>
+										<Select value={field.value} onValueChange={field.onChange}>
+											<SelectTrigger>
+												<SelectValue placeholder="Select an academic calendar" />
+											</SelectTrigger>
+											<SelectContent>
+												{academicCalendars?.map((calendar) => (
+													<SelectItem key={calendar.id} value={calendar.id}>
+														{calendar.name}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+
 							<FormField
 								control={form.control}
 								name="termId"
@@ -249,103 +264,115 @@ export function TimetableForm() {
 						<div className="space-y-4">
 							<div className="flex justify-between items-center">
 								<h3 className="text-lg font-medium">Break Times</h3>
-								<Button type="button" variant="outline" size="sm" onClick={addBreakTime}>
-									<Plus className="h-4 w-4 mr-2" />
-									Add Break
-								</Button>
 							</div>
 
 							<Alert>
 								<AlertCircle className="h-4 w-4" />
 								<AlertDescription>
-									Break times will be applied to all selected days
+									Configure break times for each day separately
 								</AlertDescription>
 							</Alert>
 
-							{form.watch("breakTimes")?.map((_, index) => (
-								<div key={index} className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] gap-4 items-end">
-									<FormField
-										control={form.control}
-										name={`breakTimes.${index}.startTime`}
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>Start Time</FormLabel>
-												<FormControl>
-													<Input type="time" {...field} />
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-									<FormField
-										control={form.control}
-										name={`breakTimes.${index}.endTime`}
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>End Time</FormLabel>
-												<FormControl>
-													<Input type="time" {...field} />
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-									<FormField
-										control={form.control}
-										name={`breakTimes.${index}.type`}
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>Type</FormLabel>
-												<Select value={field.value} onValueChange={field.onChange}>
-													<SelectTrigger>
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														{BREAK_TYPES.map(type => (
-															<SelectItem key={type.value} value={type.value}>
-																{type.label}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-									<FormField
-										control={form.control}
-										name={`breakTimes.${index}.dayOfWeek`}
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>Day</FormLabel>
-												<Select
-													value={field.value.toString()}
-													onValueChange={(value) => field.onChange(parseInt(value))}
-												>
-													<SelectTrigger>
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														{DAYS.map((day, i) => (
-															<SelectItem key={i + 1} value={(i + 1).toString()}>
-																{day}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon"
-										className="text-destructive"
-										onClick={() => removeBreakTime(index)}
-									>
-										<Trash2 className="h-4 w-4" />
-									</Button>
+							{DAYS.map((day, dayIndex) => (
+								<div key={day} className="space-y-4">
+									<div className="flex justify-between items-center">
+										<h4 className="font-medium">{day}</h4>
+										<Button 
+											type="button" 
+											variant="outline" 
+											size="sm" 
+											onClick={() => {
+												const currentBreakTimes = form.getValues("breakTimes") || [];
+												form.setValue("breakTimes", [
+													...currentBreakTimes,
+													{ 
+														startTime: "", 
+														endTime: "", 
+														type: "SHORT_BREAK" as const, 
+														dayOfWeek: dayIndex + 1 
+													}
+												]);
+											}}
+										>
+											<Plus className="h-4 w-4 mr-2" />
+											Add Break
+										</Button>
+									</div>
+
+									{form.watch("breakTimes")
+										?.filter(breakTime => breakTime.dayOfWeek === dayIndex + 1)
+										.map((_, index) => {
+											const breakIndex = form.getValues("breakTimes")
+												.findIndex(bt => bt.dayOfWeek === dayIndex + 1) + index;
+											
+											return (
+												<div key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-end">
+													<FormField
+														control={form.control}
+														name={`breakTimes.${breakIndex}.startTime`}
+														render={({ field }) => (
+															<FormItem>
+																<FormLabel>Start Time</FormLabel>
+																<FormControl>
+																	<Input type="time" {...field} />
+																</FormControl>
+																<FormMessage />
+															</FormItem>
+														)}
+													/>
+													<FormField
+														control={form.control}
+														name={`breakTimes.${breakIndex}.endTime`}
+														render={({ field }) => (
+															<FormItem>
+																<FormLabel>End Time</FormLabel>
+																<FormControl>
+																	<Input type="time" {...field} />
+																</FormControl>
+																<FormMessage />
+															</FormItem>
+														)}
+													/>
+													<FormField
+														control={form.control}
+														name={`breakTimes.${breakIndex}.type`}
+														render={({ field }) => (
+															<FormItem>
+																<FormLabel>Type</FormLabel>
+																<Select value={field.value} onValueChange={field.onChange}>
+																	<SelectTrigger>
+																		<SelectValue />
+																	</SelectTrigger>
+																	<SelectContent>
+																		{BREAK_TYPES.map(type => (
+																			<SelectItem key={type.value} value={type.value}>
+																				{type.label}
+																			</SelectItem>
+																		))}
+																	</SelectContent>
+																</Select>
+																<FormMessage />
+															</FormItem>
+														)}
+													/>
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														className="text-destructive"
+														onClick={() => {
+															const currentBreakTimes = form.getValues("breakTimes");
+															form.setValue(
+																"breakTimes",
+																currentBreakTimes.filter((_, i) => i !== breakIndex)
+															);
+														}}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+											);
+									})}
 								</div>
 							))}
 						</div>

@@ -500,14 +500,13 @@ model Timetable {
   classGroup   ClassGroup @relation(fields: [classGroupId], references: [id])
   classGroupId String
   class        Class      @relation(fields: [classId], references: [id])
-  classId      String
+  classId      String     @unique
   periods      Period[]
   breakTimes   BreakTime[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-
-  @@unique([termId, classGroupId, classId])
 }
+
 
 model Period {
   id               String          @id @default(cuid())

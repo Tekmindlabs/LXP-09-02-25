@@ -50,12 +50,44 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 		return acc;
 	}, {});
 
+	const breakTimesByDay = timetable.breakTimes?.reduce<Record<number, any[]>>((acc, breakTime) => {
+		const day = breakTime.dayOfWeek;
+		if (!acc[day]) acc[day] = [];
+		acc[day].push(breakTime);
+		return acc;
+	}, {});
+
+	const renderBreakTimeCard = (breakTime: any): ReactNode => (
+		<Card 
+			key={breakTime.id} 
+			className="p-3 bg-secondary/5 hover:bg-secondary/10 transition-colors border-l-4 border-l-secondary"
+		>
+			<div className="flex justify-between items-start">
+				<div>
+					<div className="text-sm font-semibold text-secondary">
+						{breakTime.type === 'SHORT_BREAK' ? 'Short Break' : 'Lunch Break'}
+					</div>
+				</div>
+				<div className="text-xs text-muted-foreground">
+					{new Date(`1970-01-01T${breakTime.startTime}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+					{new Date(`1970-01-01T${breakTime.endTime}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+				</div>
+			</div>
+		</Card>
+	);
+
 	const getPeriodsForTimeSlot = (day: number, timeSlot: string) => {
-		return periodsByDay?.[day]?.filter(period => {
+		const periods = periodsByDay?.[day]?.filter(period => {
 			const periodStart = period.startTime.toISOString().slice(11, 16);
 			const periodEnd = period.endTime.toISOString().slice(11, 16);
 			return timeSlot >= periodStart && timeSlot < periodEnd;
 		});
+
+		const breakTimes = breakTimesByDay?.[day]?.filter(breakTime => {
+			return timeSlot >= breakTime.startTime && timeSlot < breakTime.endTime;
+		});
+
+		return { periods, breakTimes };
 	};
 
 	const handlePeriodSave = () => {
@@ -108,7 +140,7 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 	const renderDayView = (): ReactNode => (
 		<div className="grid grid-cols-1 gap-2">
 			{TIME_SLOTS.map((timeSlot) => {
-				const periods = getPeriodsForTimeSlot(selectedDay, timeSlot);
+				const { periods, breakTimes } = getPeriodsForTimeSlot(selectedDay, timeSlot);
 				return (
 					<div key={timeSlot} className="flex group">
 						<div className="w-20 py-2 text-sm text-muted-foreground font-medium">
@@ -116,6 +148,7 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 						</div>
 						<div className="flex-1 pl-4 min-h-[3rem] border-l group-hover:border-l-primary">
 							{periods?.map(renderPeriodCard)}
+							{breakTimes?.map(renderBreakTimeCard)}
 						</div>
 					</div>
 				);
@@ -137,10 +170,11 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 				<div key={day} className="col-span-1">
 					<div className="h-10 font-semibold text-center">{day}</div>
 					{TIME_SLOTS.map(slot => {
-						const periods = getPeriodsForTimeSlot(index + 1, slot);
+						const { periods, breakTimes } = getPeriodsForTimeSlot(index + 1, slot);
 						return (
 							<div key={slot} className="h-24 border-l p-2">
 								{periods?.map(renderPeriodCard)}
+								{breakTimes?.map(renderBreakTimeCard)}
 							</div>
 						);
 					})}

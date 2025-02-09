@@ -99,58 +99,83 @@ export class TimetableService {
 		};
 	}
 
+	async validateTimetableCreation(input: TimetableInput): Promise<boolean> {
+		const existingTimetable = await this.prisma.timetable.findFirst({
+			where: {
+				AND: [
+					{
+						OR: [
+							{ classId: input.classId },
+							{ classGroupId: input.classGroupId }
+						]
+					},
+					{ termId: input.termId }
+				]
+			}
+		});
+
+		if (existingTimetable) {
+			throw new Error('A timetable already exists for this class in the selected term');
+		}
+
+		return true;
+	}
+
 	async createTimetable(input: TimetableInput) {
-        const timetable = await this.prisma.timetable.create({
-            data: {
-                term: { connect: { id: input.termId } },
-                classGroup: { connect: { id: input.classGroupId } },
-                class: { connect: { id: input.classId } }
-            }
-        });
+		// Validate before creation
+		await this.validateTimetableCreation(input);
 
-        // Create periods
-        await this.prisma.period.createMany({
-            data: input.periods.map(period => ({
-                timetableId: timetable.id,
-                startTime: new Date(`1970-01-01T${period.startTime}:00`),
-                endTime: new Date(`1970-01-01T${period.endTime}:00`),
-                dayOfWeek: period.dayOfWeek,
-                durationInMinutes: period.durationInMinutes,
-                subjectId: period.subjectId,
-                teacherId: period.teacherId,
-                classroomId: period.classroomId
-            }))
-        });
+		const timetable = await this.prisma.timetable.create({
+			data: {
+				term: { connect: { id: input.termId } },
+				classGroup: { connect: { id: input.classGroupId } },
+				class: { connect: { id: input.classId } }
+			}
+		});
 
-        // Create break times using raw SQL
-        if (input.breakTimes.length > 0) {
-            await this.prisma.$executeRaw`
-                INSERT INTO "break_times" ("id", "startTime", "endTime", "type", "dayOfWeek", "timetableId", "createdAt", "updatedAt")
-                VALUES ${input.breakTimes.map(bt => `(
-                    gen_random_uuid(),
-                    ${bt.startTime},
-                    ${bt.endTime},
-                    ${bt.type},
-                    ${bt.dayOfWeek},
-                    ${timetable.id},
-                    NOW(),
-                    NOW()
-                )`).join(', ')}
-            `;
-        }
+		// Create break times first
+		if (input.breakTimes.length > 0) {
+			await this.prisma.breakTime.createMany({
+				data: input.breakTimes.map(bt => ({
+					startTime: bt.startTime,
+					endTime: bt.endTime,
+					type: bt.type,
+					dayOfWeek: bt.dayOfWeek,
+					timetableId: timetable.id
+				}))
+			});
+		}
 
-        return this.prisma.timetable.findUnique({
-            where: { id: timetable.id },
-            include: {
-                periods: {
-                    include: {
-                        subject: true,
-                        teacher: true,
-                        classroom: true
-                    }
-                }
-            }
-        });
+		// Create periods if any
+		if (input.periods.length > 0) {
+			await this.prisma.period.createMany({
+				data: input.periods.map(period => ({
+					timetableId: timetable.id,
+					startTime: new Date(`1970-01-01T${period.startTime}:00`),
+					endTime: new Date(`1970-01-01T${period.endTime}:00`),
+					dayOfWeek: period.dayOfWeek,
+					durationInMinutes: period.durationInMinutes,
+					subjectId: period.subjectId,
+					teacherId: period.teacherId,
+					classroomId: period.classroomId
+				}))
+			});
+		}
 
+		return this.prisma.timetable.findUnique({
+			where: { id: timetable.id },
+			include: {
+				periods: {
+					include: {
+						subject: true,
+						teacher: true,
+						classroom: true
+					}
+				},
+				breakTimes: true,
+				class: true,
+				classGroup: true
+			}
+		});
 	}
 }

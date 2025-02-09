@@ -7,44 +7,27 @@ export async function seedClasses(prisma: PrismaClient, classGroups: ClassGroup[
 	const classesData = [
 		// Elementary Classes
 		{
-			name: 'Grade 1-A',
+			name: 'Grade 1',
 			classGroupId: classGroups[0].id,
-			capacity: 25,
-			description: 'First grade section A'
-		},
-		{
-			name: 'Grade 1-B',
-			classGroupId: classGroups[0].id,
-			capacity: 25,
-			description: 'First grade section B'
+			capacity: 30,
+			description: 'First grade'
 		},
 		// Middle School Classes
 		{
-			name: 'Grade 7-A',
+			name: 'Grade 7',
 			classGroupId: classGroups[1].id,
-			capacity: 30,
-			description: 'Seventh grade section A'
-		},
-		{
-			name: 'Grade 7-B',
-			classGroupId: classGroups[1].id,
-			capacity: 30,
-			description: 'Seventh grade section B'
+			capacity: 35,
+			description: 'Seventh grade'
 		},
 		// High School Classes
 		{
-			name: 'Grade 10-A',
+			name: 'Grade 10',
 			classGroupId: classGroups[2].id,
-			capacity: 35,
-			description: 'Tenth grade section A'
-		},
-		{
-			name: 'Grade 10-B',
-			classGroupId: classGroups[2].id,
-			capacity: 35,
-			description: 'Tenth grade section B'
+			capacity: 40,
+			description: 'Tenth grade'
 		}
 	];
+
 
 	const classes = await Promise.all(
 		classesData.map(classData =>
