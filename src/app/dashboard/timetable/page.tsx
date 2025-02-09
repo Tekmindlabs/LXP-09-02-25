@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimetableForm } from "@/components/dashboard/timetable/TimetableForm";
-import { ScheduleView } from "@/components/dashboard/timetable/ScheduleView";
+import { ScheduleView } from "@/components/dashboard/roles/super-admin/timetable/ScheduleView";
 import { api } from "@/utils/api";
 import { TeacherProfile, Term, Classroom, User } from "@prisma/client";
 

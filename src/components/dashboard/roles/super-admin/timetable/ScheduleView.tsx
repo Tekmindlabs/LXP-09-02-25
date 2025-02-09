@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/utils/api";
 import { TeacherProfile, Period as PrismaPeriod, Classroom } from "@prisma/client";
 import { BreakTime, normalizeBreakTime } from "@/types/timetable";
-import { WeeklyScheduleView } from "./WeeklyScheduleView";
+import { WeeklyScheduleView } from "../../../timetable/WeeklyScheduleView";
 
 
 
