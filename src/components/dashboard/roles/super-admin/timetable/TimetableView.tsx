@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/utils/api";
 import { TeacherProfile, Period as PrismaPeriod, Classroom } from "@prisma/client";
 import { PeriodDialog } from "./PeriodDialog";
-import { PeriodInput, BreakTime, normalizeBreakTime } from "@/types/timetable";
+import { PeriodInput, BreakTime, normalizeBreakTime, formatTimeString, parseTimeString } from "@/types/timetable";
 
 
 type PeriodWithRelations = PrismaPeriod & {
@@ -57,12 +57,18 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 	const periodsByDay = timetable.periods.reduce<Record<number, PeriodWithRelations[]>>((acc, period) => {
 		const day = period.dayOfWeek;
 		if (!acc[day]) acc[day] = [];
-		// Ensure proper type casting and date handling
-		const periodWithDates: PeriodWithRelations = {
+		
+		// Ensure dates are properly handled
+		const periodWithDates = {
 			...period,
 			startTime: new Date(period.startTime),
-			endTime: new Date(period.endTime)
-		} as PeriodWithRelations;
+			endTime: new Date(period.endTime),
+			subject: period.subject,
+			teacher: period.teacher,
+			classroom: period.classroom,
+			timetable: period.timetable
+		};
+		
 		acc[day].push(periodWithDates);
 		return acc;
 	}, {});
@@ -86,22 +92,30 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 					</div>
 				</div>
 				<div className="text-xs text-muted-foreground">
-					{new Date(`1970-01-01T${breakTime.startTime}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-					{new Date(`1970-01-01T${breakTime.endTime}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+					{formatTimeString(parseTimeString(breakTime.startTime))} - {formatTimeString(parseTimeString(breakTime.endTime))}
 				</div>
 			</div>
 		</Card>
 	);
 
+
 	const getPeriodsForTimeSlot = (day: number, timeSlot: string) => {
 		const periods = periodsByDay?.[day]?.filter(period => {
-			const periodStart = new Date(period.startTime).toISOString().slice(11, 16);
-			const periodEnd = new Date(period.endTime).toISOString().slice(11, 16);
-			return timeSlot >= periodStart && timeSlot < periodEnd;
+			// Use formatTimeString to ensure consistent time format
+			const periodStart = formatTimeString(period.startTime);
+			const periodEnd = formatTimeString(period.endTime);
+			
+			// Parse times for comparison
+			const slotTime = parseTimeString(timeSlot).toTimeString().slice(0, 5);
+			const startTime = parseTimeString(periodStart).toTimeString().slice(0, 5);
+			const endTime = parseTimeString(periodEnd).toTimeString().slice(0, 5);
+			
+			return slotTime >= startTime && slotTime < endTime;
 		});
 
 		const breakTimes = breakTimesByDay?.[day]?.filter(breakTime => {
-			return timeSlot >= breakTime.startTime && timeSlot < breakTime.endTime;
+			const slotTime = parseTimeString(timeSlot).toTimeString().slice(0, 5);
+			return slotTime >= breakTime.startTime && slotTime < breakTime.endTime;
 		});
 
 		return { periods, breakTimes };
@@ -166,12 +180,12 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 					</div>
 				</div>
 				<div className="text-xs text-muted-foreground">
-					{new Date(period.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-					{new Date(period.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+					{formatTimeString(period.startTime)} - {formatTimeString(period.endTime)}
 				</div>
 			</div>
 		</Card>
 	);
+
 
 	const renderDayView = (): ReactNode => (
 		<div className="grid grid-cols-1 gap-2">

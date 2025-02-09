@@ -213,14 +213,14 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 												onBlur={field.onBlur}
 												value={field.value instanceof Date ? field.value.toTimeString().slice(0, 5) : ''}
 												onChange={(e) => {
-													const time12 = convert24To12Hour(e.target.value);
-													field.onChange(new Date(`1970-01-01T${e.target.value}`));
+													const date = new Date(`1970-01-01T${e.target.value}`);
+													field.onChange(date);
 												}}
 												className={form.formState.errors.startTime ? "border-red-500" : ""}
 											/>
 										</FormControl>
 										<FormMessage className="text-red-500" />
-										<p className="text-xs text-muted-foreground">Time will be displayed in AM/PM format</p>
+										<p className="text-xs text-muted-foreground">Enter time in 24-hour format</p>
 									</FormItem>
 								)}
 							/>
@@ -240,14 +240,14 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 												onBlur={field.onBlur}
 												value={field.value instanceof Date ? field.value.toTimeString().slice(0, 5) : ''}
 												onChange={(e) => {
-													const time12 = convert24To12Hour(e.target.value);
-													field.onChange(new Date(`1970-01-01T${e.target.value}`));
+													const date = new Date(`1970-01-01T${e.target.value}`);
+													field.onChange(date);
 												}}
 												className={form.formState.errors.endTime ? "border-red-500" : ""}
 											/>
 										</FormControl>
 										<FormMessage className="text-red-500" />
-										<p className="text-xs text-muted-foreground">Time will be displayed in AM/PM format</p>
+										<p className="text-xs text-muted-foreground">Enter time in 24-hour format</p>
 									</FormItem>
 								)}
 							/>
