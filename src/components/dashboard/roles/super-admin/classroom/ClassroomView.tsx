@@ -4,6 +4,7 @@ import { type FC } from "react";
 import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { ScheduleView } from "@/components/dashboard/roles/super-admin/timetable/ScheduleView";
 import { LuUsers, LuBookOpen } from "react-icons/lu";
 
@@ -13,10 +14,13 @@ interface ClassroomViewProps {
 
 const ClassroomView: FC<ClassroomViewProps> = ({ classroomId }) => {
 	const { data: classroom, isLoading: classroomLoading } = api.classroom.getById.useQuery(classroomId);
-	const { data: terms } = api.term.getAll.useQuery();
-	const termData = terms?.find(term => term.status === "ACTIVE"); // Get the first active term
+	const { data: terms, isLoading: termsLoading, error: termsError } = api.term.getAll.useQuery();
 
-	if (classroomLoading) {
+
+
+
+	if (classroomLoading || termsLoading) {
+
 		return <div>Loading...</div>;
 	}
 
@@ -78,15 +82,26 @@ const ClassroomView: FC<ClassroomViewProps> = ({ classroomId }) => {
 
 			<Card>
 				<CardContent className="pt-6">
-					{termData && (
+					{termsError ? (
+						<p className="text-destructive text-center py-4">
+							Error loading schedule: {termsError.message}
+						</p>
+					) : terms?.length ? (
 						<ScheduleView
 							type="classroom"
 							entityId={classroomId}
-							termId={termData.id}
+							termId={terms[0].id}
+							breakTimes={[]}
+							key={`${classroomId}-${terms[0].id}`}
 						/>
+					) : (
+						<p className="text-muted-foreground text-center py-4">
+							No active terms available
+						</p>
 					)}
 				</CardContent>
 			</Card>
+
 		</div>
 
 	);
