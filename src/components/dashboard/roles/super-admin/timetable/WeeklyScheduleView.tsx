@@ -11,8 +11,8 @@ const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
 });
 
 export type PeriodWithRelations = Omit<PrismaPeriod, 'startTime' | 'endTime'> & {
-	startTime: Date | string;
-	endTime: Date | string;
+	startTime: Date;
+	endTime: Date;
 	subject: { name: string };
 	teacher: TeacherProfile & { 
 		user: { name: string | null } 
@@ -38,24 +38,28 @@ export function WeeklyScheduleView({
 	renderPeriod, 
 	renderBreak 
 }: WeeklyScheduleViewProps) {
-	const getPeriodsForTimeSlot = (day: number, timeSlot: string) => {
+	const getPeriodsForTimeSlot = (day: number, timeSlot: string): PeriodWithRelations[] => {
 		return periods.filter(period => {
-			const startTime = new Date(period.startTime);
-			const endTime = new Date(period.endTime);
-			const periodStart = startTime.toTimeString().slice(0, 5);
-			const periodEnd = endTime.toTimeString().slice(0, 5);
+			if (period.dayOfWeek !== day) return false;
 			
-			return period.dayOfWeek === day && timeSlot >= periodStart && timeSlot < periodEnd;
+			const slotDateTime = new Date(`1970-01-01T${timeSlot}`);
+			const startDateTime = new Date(`1970-01-01T${period.startTime.toTimeString().slice(0, 8)}`);
+			const endDateTime = new Date(`1970-01-01T${period.endTime.toTimeString().slice(0, 8)}`);
+			
+			return slotDateTime >= startDateTime && slotDateTime < endDateTime;
 		});
 	};
 
-
 	const getBreakForTimeSlot = (day: number, timeSlot: string) => {
-		return breakTimes.find(
-			breakTime => breakTime.dayOfWeek === day &&
-				timeSlot >= breakTime.startTime &&
-				timeSlot < breakTime.endTime
-		);
+		return breakTimes.find(breakTime => {
+			if (breakTime.dayOfWeek !== day) return false;
+			
+			const slotDateTime = new Date(`1970-01-01T${timeSlot}`);
+			const startDateTime = new Date(`1970-01-01T${breakTime.startTime}`);
+			const endDateTime = new Date(`1970-01-01T${breakTime.endTime}`);
+			
+			return slotDateTime >= startDateTime && slotDateTime < endDateTime;
+		});
 	};
 
 	return (

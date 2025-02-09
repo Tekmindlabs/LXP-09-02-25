@@ -57,7 +57,7 @@ export default function TimetableManagement() {
 								>
 									<CardContent className="p-4">
 										<h3 className="font-semibold">
-											{timetable.classGroup?.name || timetable.class?.name}
+											{timetable.class?.name}
 										</h3>
 										<p className="text-sm text-muted-foreground">
 											{timetable.periods.length} Periods

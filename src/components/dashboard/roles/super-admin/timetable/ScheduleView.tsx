@@ -50,13 +50,13 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 		return acc;
 	}, []);
 
-	const periodsByDay = schedule?.reduce<Record<number, PeriodWithRelations[]>>((acc, period: any) => {
+	const periodsByDay = schedule?.reduce<Record<number, PeriodWithRelations[]>>((acc, period: PeriodWithRelations) => {
 		const day = period.dayOfWeek;
 		if (!acc[day]) acc[day] = [];
 		acc[day].push({
 			...period,
-			startTime: period.startTime, // Keep as is, could be Date or string
-			endTime: period.endTime, // Keep as is, could be Date or string
+			startTime: new Date(period.startTime),
+			endTime: new Date(period.endTime),
 			subject: { name: period.subject.name },
 			teacher: {
 				...period.teacher,
@@ -72,13 +72,15 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 			}
 		});
 		return acc;
-	}, {});
+	}, {}) ?? {};
 
-	const getPeriodsForTimeSlot = (day: number, timeSlot: string) => {
+	const getPeriodsForTimeSlot = (day: number, timeSlot: string): PeriodWithRelations[] | undefined => {
 		return periodsByDay?.[day]?.filter(period => {
-			const periodStart = formatTimeString(period.startTime);
-			const periodEnd = formatTimeString(period.endTime);
-			return timeSlot >= periodStart && timeSlot < periodEnd;
+			const slotDateTime = new Date(`1970-01-01T${timeSlot}`);
+			const startDateTime = new Date(`1970-01-01T${period.startTime.toTimeString().slice(0, 8)}`);
+			const endDateTime = new Date(`1970-01-01T${period.endTime.toTimeString().slice(0, 8)}`);
+			
+			return slotDateTime >= startDateTime && slotDateTime < endDateTime;
 		});
 	};
 
@@ -125,11 +127,14 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 		<div className="grid grid-cols-1 gap-2">
 			{TIME_SLOTS.map((timeSlot) => {
 				const periods = getPeriodsForTimeSlot(selectedDay, timeSlot);
-				const breakTime = allBreakTimes.find(
-					breakItem => breakItem.dayOfWeek === selectedDay &&
-						timeSlot >= breakItem.startTime &&
-						timeSlot < breakItem.endTime
-				);
+				const breakTime = allBreakTimes.find(breakItem => {
+					const slotDateTime = new Date(`1970-01-01T${timeSlot}`);
+					const startDateTime = new Date(`1970-01-01T${breakItem.startTime}`);
+					const endDateTime = new Date(`1970-01-01T${breakItem.endTime}`);
+					
+					return breakItem.dayOfWeek === selectedDay &&
+						slotDateTime >= startDateTime && slotDateTime < endDateTime;
+				});
 				return (
 					<div key={timeSlot} className="flex group">
 						<div className="w-20 py-2 text-sm text-muted-foreground font-medium">
@@ -146,8 +151,10 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 	);
 
 	const renderWeekView = (): ReactNode => {
-		const typedSchedule = schedule?.map(period => ({
+		const typedSchedule: PeriodWithRelations[] = (schedule ?? []).map(period => ({
 			...period,
+			startTime: new Date(period.startTime),
+			endTime: new Date(period.endTime),
 			subject: { name: period.subject.name },
 			teacher: {
 				...period.teacher,
@@ -161,7 +168,7 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 					name: period.timetable.class.name
 				}
 			}
-		} as PeriodWithRelations)) ?? [];
+		}));
 
 		return (
 			<WeeklyScheduleView

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, ReactNode } from 'react';
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,8 +59,8 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 		const day = period.dayOfWeek;
 		if (!acc[day]) acc[day] = [];
 		
-		// Ensure dates are properly handled
-		const periodWithDates = {
+		// Ensure dates are properly handled with type assertions
+		const periodWithDates: PeriodWithRelations = {
 			...period,
 			startTime: new Date(period.startTime),
 			endTime: new Date(period.endTime),
@@ -78,48 +79,70 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 		if (!acc[day]) acc[day] = [];
 		acc[day].push(normalizeBreakTime(breakTime));
 		return acc;
-	}, {});
+	}, {}) ?? {};
 
-	const renderBreakTimeCard = (breakTime: BreakTime): ReactNode => (
-		<Card 
-			key={`break-${breakTime.dayOfWeek}-${breakTime.startTime}-${breakTime.endTime}`} 
-			className="p-3 bg-secondary/5 hover:bg-secondary/10 transition-colors border-l-4 border-l-secondary"
-		>
-			<div className="flex justify-between items-start">
-				<div>
-					<div className="text-sm font-semibold text-secondary">
-						{breakTime.type === 'SHORT_BREAK' ? 'Short Break' : 'Lunch Break'}
+	const renderBreakTimeCard = (breakTime: BreakTime): ReactNode => {
+		const startDateTime = new Date(`1970-01-01T${breakTime.startTime}`);
+		const endDateTime = new Date(`1970-01-01T${breakTime.endTime}`);
+		const durationInMinutes = (endDateTime.getTime() - startDateTime.getTime()) / 60000;
+		
+		return (
+			<Card 
+				key={`break-${breakTime.dayOfWeek}-${breakTime.startTime}-${breakTime.endTime}`} 
+				className={cn(
+					"p-3 transition-colors border-l-4 border-l-secondary",
+					breakTime.type === 'LUNCH_BREAK' 
+						? "bg-[var(--break-lunch)] hover:bg-[var(--secondary-hover)]" 
+						: "bg-[var(--break-short)] hover:bg-[var(--secondary-hover)]"
+				)}
+				style={{ 
+					minHeight: `${(durationInMinutes / 30) * 3}rem`
+				}}
+			>
+				<div className="flex justify-between items-start">
+					<div>
+						<div className="text-sm font-semibold text-secondary">
+							{breakTime.type === 'SHORT_BREAK' ? '☕ Short Break' : '🍽️ Lunch Break'}
+						</div>
+						<div className="text-xs text-muted-foreground mt-1">
+							{Math.round(durationInMinutes)} minutes
+						</div>
+					</div>
+					<div className="text-xs text-muted-foreground">
+						{formatTimeString(parseTimeString(breakTime.startTime))} - {formatTimeString(parseTimeString(breakTime.endTime))}
 					</div>
 				</div>
-				<div className="text-xs text-muted-foreground">
-					{formatTimeString(parseTimeString(breakTime.startTime))} - {formatTimeString(parseTimeString(breakTime.endTime))}
-				</div>
-			</div>
-		</Card>
-	);
+			</Card>
+		);
+	};
 
 
-	const getPeriodsForTimeSlot = (day: number, timeSlot: string) => {
+	const getPeriodsForTimeSlot = (day: number, timeSlot: string): { 
+		periods: PeriodWithRelations[] | undefined; 
+		breakTimes: BreakTime[] | undefined; 
+	} => {
+		// Handle periods
 		const periods = periodsByDay?.[day]?.filter(period => {
-			// Use formatTimeString to ensure consistent time format
-			const periodStart = formatTimeString(period.startTime);
-			const periodEnd = formatTimeString(period.endTime);
+			const slotDateTime = new Date(`1970-01-01T${timeSlot}`);
+			const startDateTime = new Date(`1970-01-01T${period.startTime.toTimeString().slice(0, 8)}`);
 			
-			// Parse times for comparison
-			const slotTime = parseTimeString(timeSlot).toTimeString().slice(0, 5);
-			const startTime = parseTimeString(periodStart).toTimeString().slice(0, 5);
-			const endTime = parseTimeString(periodEnd).toTimeString().slice(0, 5);
-			
-			return slotTime >= startTime && slotTime < endTime;
+			// A period must start at the exact time slot
+			return slotDateTime.getTime() === startDateTime.getTime();
 		});
 
+		// Handle break times separately
 		const breakTimes = breakTimesByDay?.[day]?.filter(breakTime => {
-			const slotTime = parseTimeString(timeSlot).toTimeString().slice(0, 5);
-			return slotTime >= breakTime.startTime && slotTime < breakTime.endTime;
+			const slotDateTime = new Date(`1970-01-01T${timeSlot}`);
+			const startDateTime = new Date(`1970-01-01T${breakTime.startTime}`);
+			const endDateTime = new Date(`1970-01-01T${breakTime.endTime}`);
+			
+			// A break can overlap with the time slot
+			return slotDateTime >= startDateTime && slotDateTime < endDateTime;
 		});
 
 		return { periods, breakTimes };
 	};
+
 
 	const handlePeriodSave = async (periodData: PeriodInput) => {
 		try {
@@ -169,6 +192,9 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 			key={period.id} 
 			className="p-3 bg-primary/5 hover:bg-primary/10 transition-colors border-l-4 border-l-primary cursor-pointer"
 			onClick={() => handleEditPeriod(period)}
+			style={{ 
+				minHeight: `${(period.durationInMinutes / 30) * 3}rem` 
+			}}
 		>
 			<div className="flex justify-between items-start">
 				<div>
