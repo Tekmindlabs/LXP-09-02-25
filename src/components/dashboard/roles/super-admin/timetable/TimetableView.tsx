@@ -40,7 +40,9 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
 	const [selectedPeriod, setSelectedPeriod] = useState<Partial<PeriodInput> | undefined>(undefined);
 
-	const { data: timetable, isLoading } = api.timetable.getById.useQuery(timetableId);
+	const { data: timetable, isLoading, refetch } = api.timetable.getById.useQuery(timetableId, {
+		refetchOnWindowFocus: true,
+	});
 	const utils = api.useUtils();
 
 	if (isLoading) return <div>Loading...</div>;
@@ -93,8 +95,9 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 		return { periods, breakTimes };
 	};
 
-	const handlePeriodSave = () => {
-		utils.timetable.getById.invalidate(timetableId);
+	const handlePeriodSave = async () => {
+		await utils.timetable.getById.invalidate(timetableId);
+		await refetch();
 		setIsDialogOpen(false);
 		setSelectedPeriod(undefined);
 	};
@@ -106,9 +109,10 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 
 	const handleEditPeriod = (period: PeriodWithRelations) => {
 		setSelectedPeriod({
+			id: period.id,
 			startTime: period.startTime.toISOString().slice(11, 16),
 			endTime: period.endTime.toISOString().slice(11, 16),
-			daysOfWeek: [period.dayOfWeek], // Changed to array since PeriodInput expects array
+			daysOfWeek: [period.dayOfWeek],
 			durationInMinutes: period.durationInMinutes,
 			teacherId: period.teacher.user.id,
 			classroomId: period.classroomId,

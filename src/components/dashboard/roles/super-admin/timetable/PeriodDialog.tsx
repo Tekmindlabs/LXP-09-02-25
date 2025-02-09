@@ -43,7 +43,7 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 	const { data: subjects } = api.subject.list.useQuery();
 	const { mutateAsync: checkAvailability } = api.timetable.checkAvailability.useMutation();
 	const { mutate: createPeriod } = api.timetable.createPeriod.useMutation();
-
+	const { mutate: updatePeriod } = api.timetable.updatePeriod.useMutation();
 
 	const onSubmit = async (data: PeriodInput) => {
 		try {
@@ -61,7 +61,8 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 
 			const availability = await checkAvailability({
 				period: periodData,
-				breakTimes
+				breakTimes,
+				excludePeriodId: period?.id
 			});
 
 			if (!availability.isAvailable) {
@@ -87,29 +88,52 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 				return;
 			}
 
-			// If available, create the period
-			createPeriod(
-				periodData,
-				{
-					onSuccess: () => {
-						onSave(data);
-						onClose();
-						toast({
-							title: "Success",
-							description: "Period created successfully"
-						});
-					},
-					onError: (error) => {
-						console.error('Error creating period:', error);
-						toast({
-							title: "Error",
-							description: "Failed to create period",
-							variant: "destructive"
-						});
+			// If available, create or update the period
+			if (period?.id) {
+				updatePeriod(
+					{ ...periodData, id: period.id },
+					{
+						onSuccess: () => {
+							onSave(data);
+							onClose();
+							toast({
+								title: "Success",
+								description: "Period updated successfully"
+							});
+						},
+						onError: (error) => {
+							console.error('Error updating period:', error);
+							toast({
+								title: "Error",
+								description: "Failed to update period",
+								variant: "destructive"
+							});
+						}
 					}
-				}
-			);
-
+				);
+			} else {
+				createPeriod(
+					periodData,
+					{
+						onSuccess: () => {
+							onSave(data);
+							onClose();
+							toast({
+								title: "Success",
+								description: "Period created successfully"
+							});
+						},
+						onError: (error) => {
+							console.error('Error creating period:', error);
+							toast({
+								title: "Error",
+								description: "Failed to create period",
+								variant: "destructive"
+							});
+						}
+					}
+				);
+			}
 		} catch (error) {
 			console.error('Error in form submission:', error);
 			toast({
