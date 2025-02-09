@@ -91,8 +91,6 @@ export async function seedActivities(prisma: PrismaClient, params?: ActivityPara
 	} catch (error) {
 		console.error('Error seeding activities:', error);
 		throw error;
-	} finally {
-		await prisma.$disconnect();
 	}
 }
 
@@ -175,5 +173,6 @@ if (require.main === module) {
 			process.exit(1);
 		});
 }
+
 
 
