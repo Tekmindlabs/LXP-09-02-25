@@ -4,8 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/utils/api";
 import { TeacherProfile, Period as PrismaPeriod, Classroom } from "@prisma/client";
-import { BreakTime, normalizeBreakTime } from "@/types/timetable";
-import { WeeklyScheduleView } from "./WeeklyScheduleView";
+import { BreakTime, normalizeBreakTime, formatTimeString } from "@/types/timetable";
+import { WeeklyScheduleView, PeriodWithRelations } from "./WeeklyScheduleView";
 
 
 
@@ -16,18 +16,8 @@ interface ScheduleViewProps {
 	breakTimes?: BreakTime[];
 }
 
-type PeriodWithRelations = PrismaPeriod & {
-	subject: { name: string };
-	teacher: TeacherProfile & { 
-		user: { name: string | null } 
-	};
-	classroom: Classroom;
-	timetable: {
-		class: {
-			name: string;
-		};
-	};
-};
+
+
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
@@ -64,6 +54,8 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 		if (!acc[day]) acc[day] = [];
 		acc[day].push({
 			...period,
+			startTime: period.startTime, // Keep as is, could be Date or string
+			endTime: period.endTime, // Keep as is, could be Date or string
 			subject: { name: period.subject.name },
 			teacher: {
 				...period.teacher,
@@ -77,14 +69,14 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 					name: period.timetable.class.name
 				}
 			}
-		} as PeriodWithRelations);
+		});
 		return acc;
 	}, {});
 
 	const getPeriodsForTimeSlot = (day: number, timeSlot: string) => {
 		return periodsByDay?.[day]?.filter(period => {
-			const periodStart = period.startTime.toISOString().slice(11, 16);
-			const periodEnd = period.endTime.toISOString().slice(11, 16);
+			const periodStart = formatTimeString(period.startTime);
+			const periodEnd = formatTimeString(period.endTime);
 			return timeSlot >= periodStart && timeSlot < periodEnd;
 		});
 	};
@@ -103,12 +95,12 @@ export function ScheduleView({ type, entityId, termId, breakTimes = [] }: Schedu
 					</div>
 				</div>
 				<div className="text-xs text-muted-foreground">
-					{period.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-					{period.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+					{formatTimeString(period.startTime)} - {formatTimeString(period.endTime)}
 				</div>
 			</div>
 		</Card>
 	);
+
 
 	const renderBreakTime = (breakTime: BreakTime): ReactNode => (
 		<Card 

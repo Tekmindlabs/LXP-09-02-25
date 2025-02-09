@@ -27,15 +27,16 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 	const form = useForm<PeriodInput>({
 		resolver: zodResolver(periodInputSchema),
 		defaultValues: {
-			startTime: period?.startTime ?? "",
-			endTime: period?.endTime ?? "",
+			startTime: period?.startTime ? new Date(period.startTime) : new Date(),
+			endTime: period?.endTime ? new Date(period.endTime) : new Date(),
 			daysOfWeek: period?.daysOfWeek ?? [1],
 			durationInMinutes: period?.durationInMinutes ?? 45,
 			teacherId: period?.teacherId ?? "",
 			classroomId: period?.classroomId ?? "",
 			subjectId: period?.subjectId ?? "",
 			timetableId: timetableId
-		}
+		},
+		mode: "onChange"
 	});
 
 	const { data: teachers } = api.teacher.searchTeachers.useQuery({ search: "" });
@@ -47,8 +48,26 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 
 	const onSubmit = async (data: PeriodInput) => {
 		try {
+			if (!data.startTime || !data.endTime) {
+				toast({
+					title: "Validation Error",
+					description: "Start time and end time are required",
+					variant: "destructive"
+				});
+				return;
+			}
+
 			const startTime = new Date(`1970-01-01T${data.startTime}`);
 			const endTime = new Date(`1970-01-01T${data.endTime}`);
+
+			if (startTime >= endTime) {
+				toast({
+					title: "Validation Error",
+					description: "End time must be after start time",
+					variant: "destructive"
+				});
+				return;
+			}
 			const durationInMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 			
 			const periodData = {
@@ -93,8 +112,12 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 				updatePeriod(
 					{ ...periodData, id: period.id },
 					{
-						onSuccess: () => {
-							onSave(data);
+						onSuccess: (updatedPeriod) => {
+							const periodWithDaysOfWeek = {
+								...updatedPeriod[0],
+								daysOfWeek: data.daysOfWeek
+							};
+							onSave(periodWithDaysOfWeek);
 							onClose();
 							toast({
 								title: "Success",
@@ -115,8 +138,12 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 				createPeriod(
 					periodData,
 					{
-						onSuccess: () => {
-							onSave(data);
+						onSuccess: (createdPeriods) => {
+							const periodWithDaysOfWeek = {
+								...createdPeriods[0],
+								daysOfWeek: data.daysOfWeek
+							};
+							onSave(periodWithDaysOfWeek);
 							onClose();
 							toast({
 								title: "Success",
@@ -138,7 +165,7 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 			console.error('Error in form submission:', error);
 			toast({
 				title: "Error",
-				description: "Failed to process form submission",
+				description: error instanceof Error ? error.message : "Failed to process form submission",
 				variant: "destructive"
 			});
 		}
@@ -149,30 +176,47 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 			<DialogContent className="sm:max-w-[500px]">
 				<DialogHeader>
 					<DialogTitle>{period ? 'Edit Period' : 'Add New Period'}</DialogTitle>
-					<DialogDescription>
-						Schedule a new class period. All fields are required.
+					<DialogDescription className="text-red-500">
+						* All fields are required
 					</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+						{Object.keys(form.formState.errors).length > 0 && (
+							<Alert variant="destructive" className="mb-4">
+								<AlertCircle className="h-4 w-4" />
+								<AlertDescription>
+									Please fix the following errors:
+									<ul className="list-disc list-inside mt-2">
+										{Object.entries(form.formState.errors).map(([field, error]) => (
+											<li key={field}>{error?.message}</li>
+										))}
+									</ul>
+								</AlertDescription>
+							</Alert>
+						)}
 						<div className="grid grid-cols-2 gap-4">
 							<FormField
 								control={form.control}
 								name="startTime"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>Start Time</FormLabel>
+										<FormLabel className="flex items-center gap-1">
+											Start Time <span className="text-red-500">*</span>
+										</FormLabel>
 										<FormControl>
 											<Input 
 												type="time" 
 												name={field.name}
 												ref={field.ref}
 												onBlur={field.onBlur}
-												value={typeof field.value === 'string' ? field.value : ''}
-												onChange={(e) => field.onChange(e.target.value)}
+												value={field.value instanceof Date ? field.value.toISOString().slice(11, 16) : ''}
+												onChange={(e) => field.onChange(new Date(`1970-01-01T${e.target.value}`))}
+												className={form.formState.errors.startTime ? "border-red-500" : ""}
 											/>
 										</FormControl>
-										<FormMessage />
+										<FormMessage className="text-red-500" />
+										<p className="text-xs text-muted-foreground">Enter time in 24-hour format (HH:mm)</p>
 									</FormItem>
 								)}
 							/>
@@ -181,18 +225,22 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 								name="endTime"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>End Time</FormLabel>
+										<FormLabel className="flex items-center gap-1">
+											End Time <span className="text-red-500">*</span>
+										</FormLabel>
 										<FormControl>
 											<Input 
 												type="time" 
 												name={field.name}
 												ref={field.ref}
 												onBlur={field.onBlur}
-												value={typeof field.value === 'string' ? field.value : ''}
-												onChange={(e) => field.onChange(e.target.value)}
+												value={field.value instanceof Date ? field.value.toISOString().slice(11, 16) : ''}
+												onChange={(e) => field.onChange(new Date(`1970-01-01T${e.target.value}`))}
+												className={form.formState.errors.endTime ? "border-red-500" : ""}
 											/>
 										</FormControl>
-										<FormMessage />
+										<FormMessage className="text-red-500" />
+										<p className="text-xs text-muted-foreground">Enter time in 24-hour format (HH:mm)</p>
 									</FormItem>
 								)}
 							/>
@@ -203,7 +251,9 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 							name="daysOfWeek"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Days of Week</FormLabel>
+									<FormLabel className="flex items-center gap-1">
+										Days of Week <span className="text-red-500">*</span>
+									</FormLabel>
 									<FormControl>
 										<MultiSelect
 											options={DAYS.map((day, index) => ({
@@ -226,7 +276,9 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 							name="teacherId"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Teacher</FormLabel>
+									<FormLabel className="flex items-center gap-1">
+										Teacher <span className="text-red-500">*</span>
+									</FormLabel>
 									<Select value={field.value} onValueChange={field.onChange}>
 										<SelectTrigger>
 											<SelectValue placeholder="Select a teacher" />
@@ -249,7 +301,9 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 							name="classroomId"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Classroom</FormLabel>
+									<FormLabel className="flex items-center gap-1">
+										Classroom <span className="text-red-500">*</span>
+									</FormLabel>
 									<Select value={field.value} onValueChange={field.onChange}>
 										<SelectTrigger>
 											<SelectValue placeholder="Select a classroom" />
@@ -272,7 +326,9 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 							name="subjectId"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Subject</FormLabel>
+									<FormLabel className="flex items-center gap-1">
+										Subject <span className="text-red-500">*</span>
+									</FormLabel>
 									<Select value={field.value} onValueChange={field.onChange}>
 										<SelectTrigger>
 											<SelectValue placeholder="Select a subject" />

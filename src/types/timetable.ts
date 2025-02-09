@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+// Add helper functions for time format conversion
+export const formatTimeString = (time: Date | string): string => {
+	if (time instanceof Date) {
+		return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	}
+	return time;
+};
+
+export const parseTimeString = (time: string | Date): Date => {
+	if (time instanceof Date) return time;
+	return new Date(`1970-01-01T${time}`);
+};
+
 export const breakTimeSchema = z.object({
 	startTime: z.string(), // HH:mm format
 	endTime: z.string(),
@@ -7,17 +20,60 @@ export const breakTimeSchema = z.object({
 	dayOfWeek: z.number().min(1).max(7)
 });
 
+// Add a type for consistent period handling
+export interface NormalizedPeriod extends Omit<PeriodInput, 'startTime' | 'endTime'> {
+	startTime: Date;
+	endTime: Date;
+}
+
 export const periodInputSchema = z.object({
 	id: z.string().optional(),
-	startTime: z.union([z.string(), z.date()]),
-	endTime: z.union([z.string(), z.date()]),
-	daysOfWeek: z.array(z.number().min(1).max(7)).min(1, "Select at least one day"),
-	subjectId: z.string(),
-	teacherId: z.string(),
-	classroomId: z.string(),
+	startTime: z.union([z.string(), z.date()], {
+		required_error: "Start time is required",
+		invalid_type_error: "Invalid start time format"
+	}).transform(time => {
+		if (typeof time === 'string') {
+			return new Date(`1970-01-01T${time}`);
+		}
+		return time;
+	}),
+	endTime: z.union([z.string(), z.date()], {
+		required_error: "End time is required",
+		invalid_type_error: "Invalid end time format"
+	}).transform(time => {
+		if (typeof time === 'string') {
+			return new Date(`1970-01-01T${time}`);
+		}
+		return time;
+	}),
+	daysOfWeek: z.array(z.number().min(1).max(7))
+		.min(1, "Select at least one day")
+		.refine((days) => days.length > 0, "At least one day must be selected"),
+	subjectId: z.string({
+		required_error: "Subject is required",
+		invalid_type_error: "Invalid subject selection"
+	}).min(1, "Subject is required"),
+	teacherId: z.string({
+		required_error: "Teacher is required",
+		invalid_type_error: "Invalid teacher selection"
+	}).min(1, "Teacher is required"),
+	classroomId: z.string({
+		required_error: "Classroom is required",
+		invalid_type_error: "Invalid classroom selection"
+	}).min(1, "Classroom is required"),
 	durationInMinutes: z.number().default(45),
 	timetableId: z.string()
-});
+}).refine(
+	(data) => {
+		const start = data.startTime instanceof Date ? data.startTime : parseTimeString(data.startTime);
+		const end = data.endTime instanceof Date ? data.endTime : parseTimeString(data.endTime);
+		return start < end;
+	},
+	{
+		message: "End time must be after start time",
+		path: ["endTime"]
+	}
+);
 
 export const timetableInputSchema = z.object({
 	termId: z.string(),

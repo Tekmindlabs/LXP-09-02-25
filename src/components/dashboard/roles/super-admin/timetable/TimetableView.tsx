@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/utils/api";
 import { TeacherProfile, Period as PrismaPeriod, Classroom } from "@prisma/client";
 import { PeriodDialog } from "./PeriodDialog";
-import { PeriodInput } from "@/types/timetable";
+import { PeriodInput, BreakTime, normalizeBreakTime } from "@/types/timetable";
 
 
 type PeriodWithRelations = PrismaPeriod & {
-	subject: { name: string };
+	subject: { name: string; id: string };
 	teacher: TeacherProfile & { 
 		user: { 
 			id: string;
@@ -40,31 +40,43 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
 	const [selectedPeriod, setSelectedPeriod] = useState<Partial<PeriodInput> | undefined>(undefined);
 
-	const { data: timetable, isLoading, refetch } = api.timetable.getById.useQuery(timetableId, {
-		refetchOnWindowFocus: true,
-	});
+	const { data: timetable, isLoading, refetch } = api.timetable.getById.useQuery(
+		timetableId, 
+		{
+			refetchOnWindowFocus: true,
+			refetchOnMount: true,
+			refetchInterval: 1000 // Refetch every second while component is mounted
+		}
+	);
+
 	const utils = api.useUtils();
 
 	if (isLoading) return <div>Loading...</div>;
 	if (!timetable) return <div>Timetable not found</div>;
 
-	const periodsByDay = timetable.periods.reduce<Record<number, PeriodWithRelations[]>>((acc, period: any) => {
+	const periodsByDay = timetable.periods.reduce<Record<number, PeriodWithRelations[]>>((acc, period) => {
 		const day = period.dayOfWeek;
 		if (!acc[day]) acc[day] = [];
-		acc[day].push(period);
+		// Ensure proper type casting and date handling
+		const periodWithDates: PeriodWithRelations = {
+			...period,
+			startTime: new Date(period.startTime),
+			endTime: new Date(period.endTime)
+		} as PeriodWithRelations;
+		acc[day].push(periodWithDates);
 		return acc;
 	}, {});
 
-	const breakTimesByDay = timetable.breakTimes?.reduce<Record<number, any[]>>((acc, breakTime) => {
+	const breakTimesByDay = timetable.breakTimes?.reduce<Record<number, BreakTime[]>>((acc, breakTime) => {
 		const day = breakTime.dayOfWeek;
 		if (!acc[day]) acc[day] = [];
-		acc[day].push(breakTime);
+		acc[day].push(normalizeBreakTime(breakTime));
 		return acc;
 	}, {});
 
-	const renderBreakTimeCard = (breakTime: any): ReactNode => (
+	const renderBreakTimeCard = (breakTime: BreakTime): ReactNode => (
 		<Card 
-			key={breakTime.id} 
+			key={`break-${breakTime.dayOfWeek}-${breakTime.startTime}-${breakTime.endTime}`} 
 			className="p-3 bg-secondary/5 hover:bg-secondary/10 transition-colors border-l-4 border-l-secondary"
 		>
 			<div className="flex justify-between items-start">
@@ -83,8 +95,8 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 
 	const getPeriodsForTimeSlot = (day: number, timeSlot: string) => {
 		const periods = periodsByDay?.[day]?.filter(period => {
-			const periodStart = period.startTime.toISOString().slice(11, 16);
-			const periodEnd = period.endTime.toISOString().slice(11, 16);
+			const periodStart = new Date(period.startTime).toISOString().slice(11, 16);
+			const periodEnd = new Date(period.endTime).toISOString().slice(11, 16);
 			return timeSlot >= periodStart && timeSlot < periodEnd;
 		});
 
@@ -95,11 +107,27 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 		return { periods, breakTimes };
 	};
 
-	const handlePeriodSave = async () => {
-		await utils.timetable.getById.invalidate(timetableId);
-		await refetch();
-		setIsDialogOpen(false);
-		setSelectedPeriod(undefined);
+	const handlePeriodSave = async (periodData: PeriodInput) => {
+		try {
+			console.log('Period saved:', periodData); // Debug log
+			
+			// Invalidate all related queries
+			await Promise.all([
+				utils.timetable.getById.invalidate(timetableId),
+				utils.timetable.getAll.invalidate(),
+				utils.timetable.getTeacherSchedule.invalidate(),
+				utils.timetable.getClassroomSchedule.invalidate()
+			]);
+			
+			// Force an immediate refetch
+			const updatedTimetable = await refetch();
+			console.log('Updated timetable:', updatedTimetable.data); // Debug log
+			
+			setIsDialogOpen(false);
+			setSelectedPeriod(undefined);
+		} catch (error) {
+			console.error('Error refreshing timetable data:', error);
+		}
 	};
 
 	const handleAddPeriod = () => {
@@ -110,8 +138,8 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 	const handleEditPeriod = (period: PeriodWithRelations) => {
 		setSelectedPeriod({
 			id: period.id,
-			startTime: period.startTime.toISOString().slice(11, 16),
-			endTime: period.endTime.toISOString().slice(11, 16),
+			startTime: period.startTime,
+			endTime: period.endTime,
 			daysOfWeek: [period.dayOfWeek],
 			durationInMinutes: period.durationInMinutes,
 			teacherId: period.teacher.user.id,
@@ -138,8 +166,8 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 					</div>
 				</div>
 				<div className="text-xs text-muted-foreground">
-					{period.startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
-					{period.endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+					{new Date(period.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - 
+					{new Date(period.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
 				</div>
 			</div>
 		</Card>

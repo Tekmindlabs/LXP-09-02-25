@@ -9,17 +9,19 @@ const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
 	return `${hour.toString().padStart(2, "0")}:${minute}`;
 });
 
-type PeriodWithRelations = PrismaPeriod & {
-    subject: { name: string };
-    teacher: TeacherProfile & { 
-        user: { name: string | null } 
-    };
-    classroom: Classroom;
-    timetable: {
-        class: {
-            name: string;
-        };
-    };
+export type PeriodWithRelations = Omit<PrismaPeriod, 'startTime' | 'endTime'> & {
+	startTime: Date | string;
+	endTime: Date | string;
+	subject: { name: string };
+	teacher: TeacherProfile & { 
+		user: { name: string | null } 
+	};
+	classroom: Classroom;
+	timetable: {
+		class: {
+			name: string;
+		};
+	};
 };
 
 interface WeeklyScheduleViewProps {
@@ -37,8 +39,12 @@ export function WeeklyScheduleView({
 }: WeeklyScheduleViewProps) {
 	const getPeriodsForTimeSlot = (day: number, timeSlot: string) => {
 		return periods.filter(period => {
-			const periodStart = period.startTime.toISOString().slice(11, 16);
-			const periodEnd = period.endTime.toISOString().slice(11, 16);
+			// Ensure we're working with Date objects
+			const startTime = new Date(period.startTime);
+			const endTime = new Date(period.endTime);
+			const periodStart = startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+			const periodEnd = endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+			
 			return period.dayOfWeek === day && timeSlot >= periodStart && timeSlot < periodEnd;
 		});
 	};

@@ -319,19 +319,20 @@ export const timetableRouter = createTRPCRouter({
 				where: { id: input },
 				include: {
 					periods: {
-						include: {
-							subject: true,
-							classroom: true,
-							teacher: {
-								include: {
-									user: true
-								}
-							}
-						},
+						include: periodWithRelations,
+						orderBy: [
+							{ dayOfWeek: 'asc' },
+							{ startTime: 'asc' }
+						]
 					},
 					classGroup: true,
 					class: true,
-					breakTimes: true
+					breakTimes: {
+						orderBy: [
+							{ dayOfWeek: 'asc' },
+							{ startTime: 'asc' }
+						]
+					}
 				},
 			});
 		}),
@@ -547,18 +548,34 @@ export const timetableRouter = createTRPCRouter({
 							timetable: { connect: { id: input.timetableId } },
 							teacher: { connect: { id: teacherProfile.id } },
 						},
-						include: {
-							subject: true,
-							classroom: true,
-							teacher: {
-								include: {
-									user: true,
-								},
-							},
-						},
+						include: periodWithRelations
 					});
 				})
 			);
+
+			// Fetch and return the updated timetable
+			const updatedTimetable = await ctx.prisma.timetable.findUnique({
+				where: { id: input.timetableId },
+				include: {
+					periods: {
+						include: periodWithRelations,
+						orderBy: [
+							{ dayOfWeek: 'asc' },
+							{ startTime: 'asc' }
+						]
+					},
+					breakTimes: true,
+					class: true,
+					classGroup: true
+				}
+			});
+
+			if (!updatedTimetable) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Timetable not found after period creation"
+				});
+			}
 
 			return periods;
 		}),
