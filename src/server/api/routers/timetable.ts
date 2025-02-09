@@ -51,6 +51,12 @@ export const timetableRouter = createTRPCRouter({
 		}))
 		.mutation(async ({ ctx, input }) => {
 			const conflicts: ScheduleConflict[] = [];
+			const startTimeStr = typeof input.period.startTime === 'string' ? 
+				input.period.startTime : 
+				input.period.startTime.toTimeString().slice(0, 5);
+			const endTimeStr = typeof input.period.endTime === 'string' ? 
+				input.period.endTime : 
+				input.period.endTime.toTimeString().slice(0, 5);
 
 			// Check conflicts for each selected day
 			for (const dayOfWeek of input.period.daysOfWeek) {
@@ -58,8 +64,8 @@ export const timetableRouter = createTRPCRouter({
 				const breakTimeConflict = input.breakTimes.find(breakTime =>
 					breakTime.dayOfWeek === dayOfWeek &&
 					isTimeOverlapping(
-						input.period.startTime,
-						input.period.endTime,
+						startTimeStr,
+						endTimeStr,
 						breakTime.startTime,
 						breakTime.endTime
 					)

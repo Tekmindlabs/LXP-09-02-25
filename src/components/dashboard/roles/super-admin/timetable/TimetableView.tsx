@@ -228,7 +228,7 @@ export default function TimetableView({ timetableId }: { timetableId: string }) 
 				onSave={handlePeriodSave}
 				period={selectedPeriod}
 				timetableId={timetableId}
-				breakTimes={[]}
+				breakTimes={timetable.breakTimes ?? []}
 			/>
 
 		</div>

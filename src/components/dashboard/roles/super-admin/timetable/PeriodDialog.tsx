@@ -33,7 +33,8 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 			durationInMinutes: period?.durationInMinutes ?? 45,
 			teacherId: period?.teacherId ?? "",
 			classroomId: period?.classroomId ?? "",
-			subjectId: period?.subjectId ?? ""
+			subjectId: period?.subjectId ?? "",
+			timetableId: timetableId
 		}
 	});
 
@@ -41,7 +42,8 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 	const { data: classrooms } = api.classroom.list.useQuery();
 	const { data: subjects } = api.subject.list.useQuery();
 	const { mutateAsync: checkAvailability } = api.timetable.checkAvailability.useMutation();
-	const { mutateAsync: createPeriod } = api.timetable.createPeriod.useMutation();
+	const { mutate: createPeriod } = api.timetable.createPeriod.useMutation();
+
 
 	const onSubmit = async (data: PeriodInput) => {
 		try {
@@ -49,14 +51,16 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 			const endTime = new Date(`1970-01-01T${data.endTime}`);
 			const durationInMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
 			
-			const updatedData = {
+			const periodData = {
 				...data,
 				durationInMinutes,
+				startTime,
+				endTime,
 				timetableId
 			};
 
 			const availability = await checkAvailability({
-				period: updatedData,
+				period: periodData,
 				breakTimes
 			});
 
@@ -84,24 +88,33 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 			}
 
 			// If available, create the period
-			const result = await createPeriod({
-				...updatedData,
-				startTime,
-				endTime
-			});
-			
-			if (result) {
-				onSave(updatedData);
-				onClose();
-				toast({
-					title: "Success",
-					description: "Period created successfully"
-				});
-			}
+			createPeriod(
+				periodData,
+				{
+					onSuccess: () => {
+						onSave(data);
+						onClose();
+						toast({
+							title: "Success",
+							description: "Period created successfully"
+						});
+					},
+					onError: (error) => {
+						console.error('Error creating period:', error);
+						toast({
+							title: "Error",
+							description: "Failed to create period",
+							variant: "destructive"
+						});
+					}
+				}
+			);
+
 		} catch (error) {
+			console.error('Error in form submission:', error);
 			toast({
 				title: "Error",
-				description: "Failed to create period",
+				description: "Failed to process form submission",
 				variant: "destructive"
 			});
 		}
@@ -126,7 +139,14 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 									<FormItem>
 										<FormLabel>Start Time</FormLabel>
 										<FormControl>
-											<Input type="time" {...field} />
+											<Input 
+												type="time" 
+												name={field.name}
+												ref={field.ref}
+												onBlur={field.onBlur}
+												value={typeof field.value === 'string' ? field.value : ''}
+												onChange={(e) => field.onChange(e.target.value)}
+											/>
 										</FormControl>
 										<FormMessage />
 									</FormItem>
@@ -139,7 +159,14 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 									<FormItem>
 										<FormLabel>End Time</FormLabel>
 										<FormControl>
-											<Input type="time" {...field} />
+											<Input 
+												type="time" 
+												name={field.name}
+												ref={field.ref}
+												onBlur={field.onBlur}
+												value={typeof field.value === 'string' ? field.value : ''}
+												onChange={(e) => field.onChange(e.target.value)}
+											/>
 										</FormControl>
 										<FormMessage />
 									</FormItem>
