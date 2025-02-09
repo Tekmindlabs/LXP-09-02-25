@@ -1,7 +1,8 @@
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { convert24To12Hour, convert12To24Hour, formatDisplayTime } from "@/utils/time";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -172,8 +173,31 @@ export function PeriodDialog({ isOpen, onClose, onSave, breakTimes, period, time
 		}
 	};
 
+	useEffect(() => {
+		if (period && isOpen) {
+			form.reset({
+				startTime: period.startTime ? new Date(period.startTime) : new Date(),
+				endTime: period.endTime ? new Date(period.endTime) : new Date(),
+				daysOfWeek: period.daysOfWeek ?? [1],
+				durationInMinutes: period.durationInMinutes ?? 45,
+				teacherId: period.teacherId ?? "",
+				classroomId: period.classroomId ?? "",
+				subjectId: period.subjectId ?? "",
+				timetableId: timetableId
+			});
+		}
+	}, [period, isOpen, timetableId, form]);
+
 	return (
-		<Dialog open={isOpen} onOpenChange={onClose}>
+		<Dialog 
+			open={isOpen} 
+			onOpenChange={(open) => {
+				if (!open) {
+					form.reset();
+					onClose();
+				}
+			}}
+		>
 			<DialogContent className="sm:max-w-[500px]">
 				<DialogHeader>
 					<DialogTitle>{period ? 'Edit Period' : 'Add New Period'}</DialogTitle>
