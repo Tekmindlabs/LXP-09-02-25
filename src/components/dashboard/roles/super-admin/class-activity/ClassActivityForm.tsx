@@ -1,21 +1,7 @@
 'use client';
 
 import { useForm, UseFormReturn } from "react-hook-form";
-import { useState } from "react";
-
-type Resource = {
-	title: string;
-	type: ActivityResourceType;
-	url: string;
-	fileInfo?: {
-		size: number;
-		createdAt: Date;
-		updatedAt: Date;
-		mimeType: string;
-		publicUrl: string;
-	};
-};
-
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -32,12 +18,15 @@ import {
 	ActivityGradingType,
 	ActivityViewType,
 	ActivityResourceType,
-	ActivityConfiguration
+	ActivityConfiguration,
+	ActivityResource,
+	ClassActivity
 } from "@/types/class-activity";
 
-import { useEffect } from "react";
+type Resource = ActivityResource;
 
 type FormData = z.infer<typeof formSchema>;
+
 
 
 
@@ -123,10 +112,16 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 	});
 
 	const { data: classes = [], isLoading: classesLoading } = api.class.list.useQuery();
-	const { data: subjects = [], isLoading: subjectsLoading } = api.subject.list.useQuery(
-		undefined,
+	const { data: subjects = [], isLoading: subjectsLoading } = api.subject.getSubjectsByClassId.useQuery(
+		{ classId: form.watch('classId') || '' },
 		{ enabled: !!form.watch('classId') }
 	);
+
+	useEffect(() => {
+		if (form.watch('classId')) {
+			form.setValue('subjectId', '');
+		}
+	}, [form.watch('classId')]);
 	const { isLoading: classGroupsLoading } = api.classGroup.list.useQuery();
 
 
@@ -183,9 +178,11 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 		if (activityId) {
 			setIsLoading(true);
 			utils.classActivity.getById.fetch(activityId)
-				.then((activity) => {
+				.then((activity: ClassActivity) => {
 					if (activity) {
-						const config = activity.configuration as unknown as ActivityConfiguration;
+						const config = activity.configuration as ActivityConfiguration;
+						const resources = (activity.resources as unknown as ActivityResource[]) || [];
+						
 						form.reset({
 							title: activity.title,
 							description: activity.description ?? "",
@@ -194,15 +191,20 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 							subjectId: activity.subjectId,
 							classGroupId: activity.classGroupId ?? undefined,
 							configuration: {
-								...config,
+								activityMode: config.activityMode,
+								isGraded: config.isGraded,
+								totalMarks: config.totalMarks,
+								passingMarks: config.passingMarks,
+								gradingType: config.gradingType,
 								availabilityDate: new Date(config.availabilityDate),
 								deadline: new Date(config.deadline),
 								instructions: config.instructions ?? "",
-								timeLimit: config.timeLimit ?? undefined,
-								attempts: config.attempts ?? undefined,
-								autoGradingConfig: config.autoGradingConfig ?? undefined
+								timeLimit: config.timeLimit,
+								attempts: config.attempts,
+								viewType: config.viewType,
+								autoGradingConfig: config.autoGradingConfig
 							},
-							resources: []
+							resources: resources
 						});
 					}
 				})
@@ -329,10 +331,18 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 										render={({ field }) => (
 											<FormItem>
 												<FormLabel>Subject</FormLabel>
-												<Select onValueChange={field.onChange} value={field.value}>
+												<Select 
+													onValueChange={field.onChange} 
+													value={field.value}
+													disabled={!form.watch('classId')}
+												>
 													<FormControl>
 														<SelectTrigger>
-															<SelectValue placeholder="Select subject" />
+															<SelectValue placeholder={
+																form.watch('classId') 
+																	? "Select subject" 
+																	: "Please select a class first"
+															} />
 														</SelectTrigger>
 													</FormControl>
 													<SelectContent>
@@ -397,6 +407,31 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 																{mode.replace(/_/g, ' ')}
 															</SelectItem>
 														))}
+													</SelectContent>
+												</Select>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+
+									<FormField
+										control={form.control}
+										name="configuration.isGraded"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Is Graded</FormLabel>
+												<Select 
+													onValueChange={(value) => field.onChange(value === 'true')} 
+													value={field.value ? 'true' : 'false'}
+												>
+													<FormControl>
+														<SelectTrigger>
+															<SelectValue placeholder="Select grading status" />
+														</SelectTrigger>
+													</FormControl>
+													<SelectContent>
+														<SelectItem value="true">Yes</SelectItem>
+														<SelectItem value="false">No</SelectItem>
 													</SelectContent>
 												</Select>
 												<FormMessage />

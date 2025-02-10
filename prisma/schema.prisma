@@ -254,6 +254,7 @@ model ClassGroup {
   timetables   Timetable[]
   activities   ClassActivity[]
   termSettings ClassGroupTermSettings[]
+  subjectChangeLogs SubjectChangeLog[]
   status       Status                   @default(ACTIVE)
   createdAt    DateTime                 @default(now())
   updatedAt    DateTime                 @updatedAt
@@ -278,6 +279,20 @@ model Subject {
   updatedAt          DateTime            @updatedAt
 
   @@map("subjects")
+}
+
+model SubjectChangeLog {
+  id           String   @id @default(cuid())
+  classGroupId String
+  changes      String   @db.Text
+  timestamp    DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  classGroup   ClassGroup @relation(fields: [classGroupId], references: [id])
+
+  @@index([classGroupId])
+  @@map("subject_change_logs")
 }
 
 model TeacherAssignment {

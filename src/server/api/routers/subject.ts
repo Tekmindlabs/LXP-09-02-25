@@ -1,8 +1,37 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { Status } from "@prisma/client";
+import { SubjectSyncService } from '@/server/services/SubjectSyncService';
 
 export const subjectRouter = createTRPCRouter({
+	getSubjectsByClassId: protectedProcedure
+		.input(z.object({
+			classId: z.string()
+		}))
+		.query(async ({ ctx, input }) => {
+			const assignments = await ctx.prisma.teacherAssignment.findMany({
+				where: { classId: input.classId },
+				include: {
+					subject: {
+						include: {
+							teachers: {
+								include: {
+									teacher: {
+										include: {
+											user: true
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			});
+
+			return assignments.map(a => a.subject);
+		}),
+
+
 	getAll: protectedProcedure
 		.query(async ({ ctx }) => {
 			return ctx.prisma.subject.findMany({
@@ -36,6 +65,7 @@ export const subjectRouter = createTRPCRouter({
 
 		.mutation(async ({ ctx, input }) => {
 			const { classGroupIds, teacherIds, ...subjectData } = input;
+			const subjectSyncService = new SubjectSyncService(ctx.prisma);
 			
 			const subject = await ctx.prisma.subject.create({
 				data: {
@@ -59,6 +89,15 @@ export const subjectRouter = createTRPCRouter({
 					},
 				},
 			});
+
+			// Track changes and sync with classes
+			await Promise.all(classGroupIds.map(async (classGroupId) => {
+				await subjectSyncService.trackSubjectChanges(classGroupId, {
+					type: 'CREATE',
+					subjectId: subject.id,
+				});
+				await subjectSyncService.syncClassSubjects(classGroupId);
+			}));
 
 			if (teacherIds && teacherIds.length > 0) {
 				await ctx.prisma.teacherSubject.createMany({
@@ -87,6 +126,7 @@ export const subjectRouter = createTRPCRouter({
 		}))
 		.mutation(async ({ ctx, input }) => {
 			const { id, classGroupIds, teacherIds, ...data } = input;
+			const subjectSyncService = new SubjectSyncService(ctx.prisma);
 
 			const subject = await ctx.prisma.subject.update({
 				where: { id },
@@ -112,13 +152,20 @@ export const subjectRouter = createTRPCRouter({
 				},
 			});
 
+			// Track changes and sync with classes
+			await Promise.all(classGroupIds.map(async (classGroupId) => {
+				await subjectSyncService.trackSubjectChanges(classGroupId, {
+					type: 'UPDATE',
+					subjectId: subject.id,
+				});
+				await subjectSyncService.syncClassSubjects(classGroupId);
+			}));
+
 			if (teacherIds) {
-				// Remove existing teacher assignments
 				await ctx.prisma.teacherSubject.deleteMany({
 					where: { subjectId: id },
 				});
 
-				// Add new teacher assignments
 				if (teacherIds.length > 0) {
 					await ctx.prisma.teacherSubject.createMany({
 						data: teacherIds.map(teacherId => ({

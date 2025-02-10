@@ -157,10 +157,15 @@ export const classActivityRouter = createTRPCRouter({
 				const activity = await ctx.prisma.classActivity.findUnique({
 					where: { id: input },
 					include: {
-						resources: true,
 						class: {
 							select: {
 								name: true
+							}
+						},
+						subject: {
+							select: {
+								name: true,
+								id: true
 							}
 						},
 						classGroup: {
@@ -195,7 +200,14 @@ export const classActivityRouter = createTRPCRouter({
 					});
 				}
 
-				return activity;
+				const config = activity.configuration as unknown as ActivityConfiguration;
+				const resources = activity.resources as unknown as ActivityResource[] || [];
+
+				return {
+					...activity,
+					configuration: config,
+					resources
+				};
 			} catch (error) {
 				if (error instanceof TRPCError) {
 					throw error;
