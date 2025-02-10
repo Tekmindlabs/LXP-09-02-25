@@ -14,20 +14,31 @@ import {
 	PopoverTrigger,
 } from "./popover";
 
-interface MultiSelectProps {
-	options: { label: string; value: number }[];
-	value: number[];
-	onChange: (value: number[]) => void;
+interface MultiSelectProps<T extends string | number = string> {
+	options: { label: string; value: T }[];
+	value: T[];
+	onChange: (value: T[]) => void;
 	placeholder?: string;
+	disabled?: boolean;
 }
 
-export function MultiSelect({ options, value, onChange, placeholder = "Select options..." }: MultiSelectProps) {
+export function MultiSelect<T extends string | number = string>({ 
+	options, 
+	value, 
+	onChange, 
+	placeholder = "Select options...",
+	disabled = false 
+}: MultiSelectProps<T>) {
 	const [open, setOpen] = React.useState(false);
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<Button variant="outline" className="w-full justify-start">
+				<Button 
+					variant="outline" 
+					className="w-full justify-start"
+					disabled={disabled}
+				>
 					{value.length > 0
 						? value.map(v => options.find(opt => opt.value === v)?.label).join(", ")
 						: placeholder}

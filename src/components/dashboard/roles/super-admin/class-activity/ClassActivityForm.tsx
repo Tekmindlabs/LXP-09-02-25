@@ -4,6 +4,9 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+
+import { MultiSelect } from '@/components/ui/multi-select';
+
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -12,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResourcesSection } from "./ResourcesSection";
 import { api } from "@/utils/api";
+import { Status } from "@prisma/client";
 import { 
 	ActivityType, 
 	ActivityMode, 
@@ -19,11 +23,44 @@ import {
 	ActivityViewType,
 	ActivityResourceType,
 	ActivityConfiguration,
-	ActivityResource,
-	ClassActivity
+	ActivityResource
 } from "@/types/class-activity";
 
+
 type Resource = ActivityResource;
+
+interface Teacher {
+	id: string;
+	name: string | null;
+	email: string | null;
+	phoneNumber: string | null;
+	status: Status;
+	teacherProfile: {
+		teacherType: 'CLASS' | 'SUBJECT';
+		specialization: string | null;
+		availability: string | null;
+		permissions: string[];
+		subjects: Array<{
+			subject: {
+				id: string;
+				name: string;
+			};
+			status: string;
+		}>;
+		classes: Array<{
+			class: {
+				id: string;
+				name: string;
+				classGroup: {
+					name: string;
+				};
+			};
+			status: string;
+			isClassTeacher: boolean;
+		}>;
+	} | null;
+}
+
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -38,7 +75,11 @@ const formSchema = z.object({
 	description: z.string().optional(),
 	type: z.nativeEnum(ActivityType),
 	classId: z.string().optional(),
-	subjectId: z.string(),
+	subjectIds: z.array(z.string()),
+	teacherAssignments: z.array(z.object({
+		subjectId: z.string(),
+		teacherId: z.string(),
+	})),
 	classGroupId: z.string().optional(),
 	configuration: z.object({
 		activityMode: z.nativeEnum(ActivityMode),
@@ -72,8 +113,24 @@ const formSchema = z.object({
 	})).optional()
 });
 
-interface Props {
+interface ActivityResponse {
+	id: string;
+	title: string;
+	description: string | null;
+	type: string;
+	classId: string | null;
+	subjectId: string;
+	classGroupId: string | null;
+	configuration: ActivityConfiguration;
+	resources: ActivityResource[];
+	class: { name: string } | null;
+	subject: { name: string; id: string };
+	classGroup: { name: string } | null;
+	teacherAssignments?: Array<{ teacherId: string; subjectId: string; }>;
+}
 
+
+interface Props {
 	activityId?: string;
 	onClose: () => void;
 }
@@ -91,7 +148,8 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 			description: "",
 			type: ActivityType.CLASS_ASSIGNMENT,
 			classId: undefined,
-			subjectId: "",
+			subjectIds: [],
+			teacherAssignments: [],
 			classGroupId: undefined,
 			configuration: {
 				activityMode: ActivityMode.IN_CLASS,
@@ -116,10 +174,14 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 		{ classId: form.watch('classId') || '' },
 		{ enabled: !!form.watch('classId') }
 	);
+	
+	const { data: teachers = [], isLoading: teachersLoading } = api.teacher.searchTeachers.useQuery({});
 
 	useEffect(() => {
 		if (form.watch('classId')) {
-			form.setValue('subjectId', '');
+			// Initialize empty teacher assignments when class changes
+			form.setValue('teacherAssignments', []);
+			form.setValue('subjectIds', []);
 		}
 	}, [form.watch('classId')]);
 	const { isLoading: classGroupsLoading } = api.classGroup.list.useQuery();
@@ -178,18 +240,19 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 		if (activityId) {
 			setIsLoading(true);
 			utils.classActivity.getById.fetch(activityId)
-				.then((activity: ClassActivity) => {
+				.then((activity: ActivityResponse) => {
 					if (activity) {
 						const config = activity.configuration as ActivityConfiguration;
 						const resources = (activity.resources as unknown as ActivityResource[]) || [];
 						
-						form.reset({
+						const formData = {
 							title: activity.title,
-							description: activity.description ?? "",
+							description: activity.description || "",
 							type: activity.type as ActivityType,
-							classId: activity.classId ?? undefined,
-							subjectId: activity.subjectId,
-							classGroupId: activity.classGroupId ?? undefined,
+							classId: activity.classId || undefined,
+							subjectIds: Array.isArray(activity.subjectId) ? activity.subjectId : [activity.subjectId],
+							teacherAssignments: activity.teacherAssignments || [],
+							classGroupId: activity.classGroupId || undefined,
 							configuration: {
 								activityMode: config.activityMode,
 								isGraded: config.isGraded,
@@ -198,14 +261,17 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 								gradingType: config.gradingType,
 								availabilityDate: new Date(config.availabilityDate),
 								deadline: new Date(config.deadline),
-								instructions: config.instructions ?? "",
+								instructions: config.instructions || "",
 								timeLimit: config.timeLimit,
 								attempts: config.attempts,
 								viewType: config.viewType,
 								autoGradingConfig: config.autoGradingConfig
 							},
 							resources: resources
-						});
+						};
+
+						form.reset(formData);
+
 					}
 				})
 				.catch((error) => {
@@ -226,15 +292,32 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 
 	const onSubmit = async (data: FormData) => {
 		try {
+			const formData = {
+				...data,
+				classId: data.classId || "",
+				subjectId: data.subjectIds[0], // Primary subject
+				configuration: {
+					...data.configuration,
+					availabilityDate: new Date(data.configuration.availabilityDate),
+					deadline: new Date(data.configuration.deadline)
+				}
+			};
+
 			if (activityId) {
 				await updateMutation.mutateAsync({
 					id: activityId,
-					...data,
-					classId: data.classId || "", // Ensure classId is never undefined
+					...formData
 				});
 			} else {
-				await createMutation.mutateAsync(data);
+				await createMutation.mutateAsync(formData);
 			}
+			
+			toast({
+				title: "Success",
+				description: `Activity ${activityId ? "updated" : "created"} successfully`,
+			});
+			utils.classActivity.getAll.invalidate();
+			onClose();
 		} catch (error) {
 			console.error(error);
 			toast({
@@ -249,7 +332,7 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 
 
 
-	const isLoadingData = classesLoading || subjectsLoading || classGroupsLoading || isLoading;
+	const isLoadingData = classesLoading || subjectsLoading || classGroupsLoading || teachersLoading || isLoading;
 
 	return (
 		<div className="container max-w-4xl mx-auto py-8">
@@ -260,7 +343,6 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 						{activityId ? 'Edit Activity' : 'Create New Activity'}
 					</h2>
 				</div>
-
 				<div className="p-6">
 					<Form {...form}>
 						<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -327,37 +409,75 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 
 									<FormField
 										control={form.control}
-										name="subjectId"
+										name="subjectIds"
 										render={({ field }) => (
 											<FormItem>
-												<FormLabel>Subject</FormLabel>
-												<Select 
-													onValueChange={field.onChange} 
+												<FormLabel>Subjects</FormLabel>
+												<MultiSelect<string>
+													options={subjects?.map((subject) => ({
+														label: subject.name,
+														value: subject.id
+													})) || []}
 													value={field.value}
+													onChange={field.onChange}
 													disabled={!form.watch('classId')}
-												>
-													<FormControl>
-														<SelectTrigger>
-															<SelectValue placeholder={
-																form.watch('classId') 
-																	? "Select subject" 
-																	: "Please select a class first"
-															} />
-														</SelectTrigger>
-													</FormControl>
-													<SelectContent>
-														{subjects?.map((subject: { id: string; name: string }) => (
-															<SelectItem key={subject.id} value={subject.id}>
-																{subject.name}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
+													placeholder={form.watch('classId') 
+														? "Select subjects" 
+														: "Please select a class first"
+													}
+												/>
 												<FormMessage />
 											</FormItem>
 										)}
 									/>
 								</div>
+
+								{/* Teacher Assignments */}
+								{form.watch('subjectIds')?.length > 0 && (
+									<div className="mt-4">
+										<h3 className="text-lg font-medium mb-4">Teacher Assignments</h3>
+										{form.watch('subjectIds').map((subjectId, index) => (
+											<div key={subjectId} className="mb-4">
+												<FormField
+													control={form.control}
+													name={`teacherAssignments.${index}`}
+													render={({ field }) => (
+														<FormItem>
+															<FormLabel>
+																Teacher for {subjects?.find(s => s.id === subjectId)?.name}
+															</FormLabel>
+															<Select 
+																onValueChange={(value) => {
+																	const assignments = [...form.watch('teacherAssignments')];
+																	assignments[index] = {
+																		subjectId,
+																		teacherId: value
+																	};
+																	form.setValue('teacherAssignments', assignments);
+																}}
+																value={field.value?.teacherId}
+															>
+																<FormControl>
+																	<SelectTrigger>
+																		<SelectValue placeholder="Select teacher" />
+																	</SelectTrigger>
+																</FormControl>
+																<SelectContent>
+																	{teachers?.map((teacher) => (
+																		<SelectItem key={teacher.id} value={teacher.id}>
+																			{teacher.name || 'Unnamed Teacher'}
+																		</SelectItem>
+																	))}
+																</SelectContent>
+															</Select>
+															<FormMessage />
+														</FormItem>
+													)}
+												/>
+											</div>
+										))}
+									</div>
+								)}
 							</div>
 
 							{/* Activity Type and Configuration */}
@@ -519,19 +639,21 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 									/>
 								</div>
 
-								<FormField
-									control={form.control}
-									name="configuration.instructions"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Instructions</FormLabel>
-											<FormControl>
-												<Textarea {...field} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
+								<div className="col-span-2">
+									<FormField
+										control={form.control}
+										name="configuration.instructions"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Instructions</FormLabel>
+												<FormControl>
+													<Textarea {...field} />
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+								</div>
 							</div>
 
 							{/* Resources */}
@@ -554,4 +676,5 @@ export default function ClassActivityForm({ activityId, onClose }: Props) {
 			</div>
 		</div>
 	);
+
 }
